@@ -2,14 +2,14 @@
 #![deny(warnings)]
 
 use anyhow::Result;
-//use assert_json_diff::assert_json_eq;
+use assert_json_diff::assert_json_eq;
 use dag_jose::{DagJoseCodec, Jose};
 use once_cell::sync::Lazy;
 use std::{io::Cursor, path::PathBuf, sync::Mutex};
 use testmark::{Document, Hunk};
 
 use libipld::codec::{Decode, Encode};
-//use libipld::json::DagJsonCodec;
+use libipld::json::DagJsonCodec;
 
 // Load the fixtures file once
 static FIXTURES: Lazy<Mutex<Document>> = Lazy::new(|| {
@@ -57,7 +57,7 @@ macro_rules! test_fixture {
 
 // Decode hex data into DAG-JOSE and re-encode into DAG-JSON
 // in order to compare against fixture data.
-fn decode_re_encode(hex_name: &str, _json_name: &str) {
+fn decode_re_encode(hex_name: &str, json_name: &str) {
     let fixtures = match FIXTURES.lock() {
         Ok(f) => f,
         // We can ignore poisoned errors since
@@ -83,18 +83,22 @@ fn decode_re_encode(hex_name: &str, _json_name: &str) {
     assert_eq!(dag_jose_hex, hex::encode(encoded_bytes));
 
     // Re-encode the DAG-JOSE value in DAG-JSON
-    //let mut bytes = Vec::new();
-    //jose.encode(DagJsonCodec, &mut bytes)
-    //    .expect("decoded DAG-JOSE value should encode to DAG-CBOR");
+    let mut bytes = Vec::new();
+    jose.encode(DagJsonCodec, &mut bytes)
+        .expect("decoded DAG-JOSE value should encode to DAG-CBOR");
+    println!(
+        "json: {}",
+        String::from_utf8(bytes.clone()).expect("JSON bytes should be valid utf-8")
+    );
 
-    //// Load expected JSON data
-    //let dag_json = fixtures.must_find_hunk(json_name);
-    //// Compare JSON representations are the same
-    //assert_json_eq!(
-    //    serde_json::from_slice::<serde_json::Value>(dag_json.data())
-    //        .expect("DAG-JSON data should be JSON"),
-    //    serde_json::from_slice::<serde_json::Value>(&bytes).expect("bytes should be JSON"),
-    //);
+    // Load expected JSON data
+    let dag_json = fixtures.must_find_hunk(json_name);
+    // Compare JSON representations are the same
+    assert_json_eq!(
+        serde_json::from_slice::<serde_json::Value>(dag_json.data())
+            .expect("DAG-JSON data should be JSON"),
+        serde_json::from_slice::<serde_json::Value>(&bytes).expect("bytes should be JSON"),
+    );
 }
 
 test_fixture!(jws, "jws");

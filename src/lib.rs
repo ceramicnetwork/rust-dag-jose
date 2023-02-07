@@ -1,5 +1,30 @@
-//! Jose codec.
-//! TODO
+//! DAG-JOSE codec.
+//!
+//! Structures are provided for encoding and decoding JSON Web Signatures and Encryption values.
+//!
+//! ```
+//! use std::io::Cursor;
+//! use dag_jose::{DagJoseCodec, Jose};
+//! use libipld::codec::{Decode, Encode};
+//!
+//! fn main() {
+//!     let data = hex::decode("
+//! a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
+//! d05ad727ca11f46a7369676e61747572657381a26970726f7465637465644f7b22616c67223a2245
+//! 64445341227d697369676e61747572655840fbff49e4e65c979955b9196023534913373416a11beb
+//! fdb256c9146903ddb9c450e287be379ca70a5e7bc039b848fb66d4bd5b96dae986941e04e7968d55
+//! b505".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
+//!
+//!     // Decode binary data into an JOSE value.
+//!     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
+//!
+//!     // Encode an JOSE value into bytes
+//!     let mut bytes = Vec::new();
+//!     jose.encode(DagJoseCodec, &mut bytes).unwrap();
+//!
+//!     assert_eq!(data, bytes);
+//! }
+//! ```
 #![deny(missing_docs)]
 #![deny(warnings)]
 
@@ -9,12 +34,15 @@ mod error;
 
 use std::{collections::BTreeMap, io::BufReader};
 
-use libipld::codec::{Codec, Decode, Encode};
 use libipld::error::UnsupportedCodec;
 #[cfg(feature = "dag-json")]
 use libipld::json::DagJsonCodec;
 use libipld::Cid;
 use libipld::Ipld;
+use libipld::{
+    codec::{Codec, Decode, Encode},
+    ipld,
+};
 
 use codec::Encoded;
 
@@ -101,6 +129,16 @@ pub struct JsonWebSignature {
     pub link: Cid,
 }
 
+impl<'a> From<&'a JsonWebSignature> for Ipld {
+    fn from(value: &'a JsonWebSignature) -> Self {
+        ipld!({
+            "payload": value.payload.to_owned(),
+            "signatures": value.signatures.iter().map(Ipld::from).collect::<Vec<Ipld>>(),
+            "link": value.link,
+        })
+    }
+}
+
 impl Encode<DagJoseCodec> for JsonWebSignature {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
         let encoded: Encoded = self.try_into()?;
@@ -118,13 +156,9 @@ impl Decode<DagJoseCodec> for JsonWebSignature {
 }
 #[cfg(feature = "dag-json")]
 impl Encode<DagJsonCodec> for JsonWebSignature {
-    fn encode<W: std::io::Write>(&self, _c: DagJsonCodec, _w: &mut W) -> anyhow::Result<()> {
-        todo!()
-        //let decoded: Decoded = self.clone().try_into()?;
-        //// TODO: add direct conversion of Decoded type to Ipld
-        //let bytes = serde_ipld_dagcbor::to_vec(&decoded)?;
-        //let data: Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
-        //data.encode(c, w)
+    fn encode<W: std::io::Write>(&self, c: DagJsonCodec, w: &mut W) -> anyhow::Result<()> {
+        let data: Ipld = self.into();
+        data.encode(c, w)
     }
 }
 
@@ -137,6 +171,20 @@ pub struct Signature {
     pub protected: Option<String>,
     /// The web signature base64 url encoded.
     pub signature: String,
+}
+
+impl<'a> From<&'a Signature> for Ipld {
+    fn from(value: &'a Signature) -> Self {
+        let mut fields: BTreeMap<String, Ipld> = BTreeMap::new();
+        if !value.header.is_empty() {
+            fields.insert("header".to_string(), value.header.to_owned().into());
+        }
+        if let Some(protected) = value.protected.to_owned() {
+            fields.insert("protected".to_string(), protected.into());
+        };
+        fields.insert("signature".to_string(), value.signature.to_owned().into());
+        Ipld::Map(fields)
+    }
 }
 
 /// A JSON Web Encryption object as defined in RFC7516.
@@ -164,6 +212,38 @@ pub struct JsonWebEncryption {
     /// The optional unprotected header.
     pub unprotected: BTreeMap<String, Ipld>,
 }
+
+impl<'a> From<&'a JsonWebEncryption> for Ipld {
+    fn from(value: &'a JsonWebEncryption) -> Self {
+        let mut fields: BTreeMap<String, Ipld> = BTreeMap::new();
+        if let Some(aad) = value.aad.to_owned() {
+            fields.insert("aad".to_string(), aad.into());
+        }
+        fields.insert("ciphertext".to_string(), value.ciphertext.to_owned().into());
+        fields.insert("iv".to_string(), value.iv.to_owned().into());
+        fields.insert("protected".to_string(), value.protected.to_owned().into());
+        if !value.recipients.is_empty() {
+            fields.insert(
+                "recipients".to_string(),
+                value
+                    .recipients
+                    .iter()
+                    .map(Ipld::from)
+                    .collect::<Vec<Ipld>>()
+                    .into(),
+            );
+        }
+
+        fields.insert("tag".to_string(), value.tag.to_owned().into());
+        if !value.unprotected.is_empty() {
+            fields.insert(
+                "unprotected".to_string(),
+                value.unprotected.to_owned().into(),
+            );
+        }
+        Ipld::Map(fields)
+    }
+}
 impl Encode<DagJoseCodec> for JsonWebEncryption {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
         let encoded: Encoded = self.try_into()?;
@@ -182,13 +262,9 @@ impl Decode<DagJoseCodec> for JsonWebEncryption {
 
 #[cfg(feature = "dag-json")]
 impl Encode<DagJsonCodec> for JsonWebEncryption {
-    fn encode<W: std::io::Write>(&self, _c: DagJsonCodec, _w: &mut W) -> anyhow::Result<()> {
-        todo!()
-        //let decoded: Decoded = self.clone().try_into()?;
-        //// TODO: add direct conversion of Decoded type to Ipld
-        //let bytes = serde_ipld_dagcbor::to_vec(&decoded)?;
-        //let data: Ipld = serde_ipld_dagcbor::from_slice(&bytes)?;
-        //data.encode(c, w)
+    fn encode<W: std::io::Write>(&self, c: DagJsonCodec, w: &mut W) -> anyhow::Result<()> {
+        let data: Ipld = self.into();
+        data.encode(c, w)
     }
 }
 
@@ -202,13 +278,26 @@ pub struct Recipient {
     pub header: BTreeMap<String, Ipld>,
 }
 
+impl<'a> From<&'a Recipient> for Ipld {
+    fn from(value: &'a Recipient) -> Self {
+        let mut fields: BTreeMap<String, Ipld> = BTreeMap::new();
+        if let Some(encrypted_key) = value.encrypted_key.to_owned() {
+            fields.insert("encrypted_key".to_string(), encrypted_key.into());
+        }
+        if !value.header.is_empty() {
+            fields.insert("header".to_string(), value.header.to_owned().into());
+        }
+        Ipld::Map(fields)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, io::Cursor};
+    use std::collections::BTreeMap;
 
     use super::*;
 
-    use libipld::ipld;
+    use libipld::{codec::assert_roundtrip, ipld};
 
     fn fixture_jws() -> (Box<[u8]>, Box<[u8]>, Box<[u8]>) {
         let payload =
@@ -313,44 +402,5 @@ mod tests {
                 "tag": tag,
             }),
         );
-    }
-    /// Utility for testing codecs.
-    ///
-    /// Encodes the `data` using the codec `c` and checks that it matches the `ipld`.
-    fn assert_roundtrip<C, T>(c: C, data: &T, ipld: &Ipld)
-    where
-        C: Codec,
-        T: Decode<C> + Encode<C> + core::fmt::Debug + PartialEq,
-        Ipld: Decode<C> + Encode<C>,
-    {
-        fn hex(bytes: &[u8]) -> String {
-            bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
-        }
-        let mut bytes = Vec::new();
-        data.encode(c, &mut bytes).unwrap();
-        let mut bytes2 = Vec::new();
-        ipld.encode(c, &mut bytes2).unwrap();
-        let ipld2: Ipld = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
-        assert_eq!(
-            &ipld2, ipld,
-            "decoded IPLD data is not equal\nleft: {:#?}\nright: {:#?}\n",
-            &ipld2, ipld
-        );
-        let data2: T = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
-        assert_eq!(
-            &data2, data,
-            "decoded data is not equal\nleft: {:#?}\nright: {:#?}",
-            &data2, data
-        );
-
-        if bytes != bytes2 {
-            panic!(
-                r#"assertion failed: `(left == right)`
-        left: `{}`,
-       right: `{}`"#,
-                hex(&bytes),
-                hex(&bytes2)
-            );
-        }
     }
 }

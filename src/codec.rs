@@ -1,4 +1,4 @@
-//! TODO
+//! Implementation of the DAG-JOSE code by defining DAG-CBOR structure.
 #![deny(missing_docs)]
 #![deny(warnings)]
 
