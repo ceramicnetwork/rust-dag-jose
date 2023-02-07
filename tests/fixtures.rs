@@ -9,7 +9,7 @@ use std::{io::Cursor, path::PathBuf, sync::Mutex};
 use testmark::{Document, Hunk};
 
 use libipld::codec::{Decode, Encode};
-use libipld::json::DagJsonCodec;
+use libipld_json::DagJsonCodec;
 
 // Load the fixtures file once
 static FIXTURES: Lazy<Mutex<Document>> = Lazy::new(|| {

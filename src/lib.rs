@@ -25,6 +25,39 @@
 //!     assert_eq!(data, bytes);
 //! }
 //! ```
+//!
+//! With the feature `dag-json` the JOSE values may also be encoded to DAG-JSON.
+//!
+//! ```
+//! use std::io::Cursor;
+//! use dag_jose::{DagJoseCodec, Jose};
+//! use libipld::codec::{Decode, Encode};
+//! use libipld_json::DagJsonCodec;
+//!
+//! fn main() {
+//!     let data = hex::decode("
+//! a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
+//! d05ad727ca11f46a7369676e61747572657381a26970726f7465637465644f7b22616c67223a2245
+//! 64445341227d697369676e61747572655840fbff49e4e65c979955b9196023534913373416a11beb
+//! fdb256c9146903ddb9c450e287be379ca70a5e7bc039b848fb66d4bd5b96dae986941e04e7968d55
+//! b505".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
+//!
+//!     // Decode binary data into an JOSE value.
+//!     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
+//!
+//!     // Encode an JOSE value into DAG-JSON bytes
+//!     let mut bytes = Vec::new();
+//!     jose.encode(DagJsonCodec, &mut bytes).unwrap();
+//!
+//!     assert_eq!(String::from_utf8(bytes).unwrap(), r#"{
+//!         "link":{"/":"bafyreiejkvsvdq4smz44yuwhfymcuvqzavveoj2at3utujwqlllspsqr6q"},
+//!         "payload":"AXESIIlVZVHDkmZ5zFLHLhgqVhkFakcnQJ7pOibQWtcnyhH0",
+//!         "signatures":[{
+//!             "protected":"eyJhbGciOiJFZERTQSJ9",
+//!             "signature":"-_9J5OZcl5lVuRlgI1NJEzc0FqEb6_2yVskUaQPducRQ4oe-N5ynCl57wDm4SPtm1L1bltrphpQeBOeWjVW1BQ"
+//!         }]}"#.chars().filter(|c| !c.is_whitespace()).collect::<String>());
+//! }
+//! ```
 #![deny(missing_docs)]
 #![deny(warnings)]
 
@@ -35,14 +68,14 @@ mod error;
 use std::{collections::BTreeMap, io::BufReader};
 
 use libipld::error::UnsupportedCodec;
-#[cfg(feature = "dag-json")]
-use libipld::json::DagJsonCodec;
 use libipld::Cid;
 use libipld::Ipld;
 use libipld::{
     codec::{Codec, Decode, Encode},
     ipld,
 };
+#[cfg(feature = "dag-json")]
+use libipld_json::DagJsonCodec;
 
 use codec::Encoded;
 
