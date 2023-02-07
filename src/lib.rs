@@ -16,12 +16,7 @@ use libipld::json::DagJsonCodec;
 use libipld::Cid;
 use libipld::Ipld;
 
-use codec::{Decoded, Encoded};
-
-use crate::{
-    codec::{DecodedRecipient, DecodedSignature, EncodedRecipient, EncodedSignature},
-    error::Error,
-};
+use codec::Encoded;
 
 /// DAG-JOSE codec
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -79,10 +74,7 @@ impl Decode<DagJoseCodec> for Jose {
         r: &mut R,
     ) -> anyhow::Result<Self> {
         let encoded: Encoded = serde_ipld_dagcbor::from_reader(BufReader::new(r))?;
-        match encoded.payload {
-            Some(_) => Ok(Jose::Signature(encoded.try_into()?)),
-            None => Ok(Jose::Encryption(encoded.try_into()?)),
-        }
+        Ok(encoded.try_into()?)
     }
 }
 
@@ -112,6 +104,7 @@ pub struct JsonWebSignature {
 
 impl Encode<DagJoseCodec> for JsonWebSignature {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
+        //TODO use reference
         let encoded: Encoded = self.clone().try_into()?;
         Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
     }
@@ -125,7 +118,6 @@ impl Decode<DagJoseCodec> for JsonWebSignature {
         Ok(encoded.try_into()?)
     }
 }
-// TODO put this behind feature flag
 #[cfg(feature = "dag-json")]
 impl Encode<DagJsonCodec> for JsonWebSignature {
     fn encode<W: std::io::Write>(&self, _c: DagJsonCodec, _w: &mut W) -> anyhow::Result<()> {
@@ -138,29 +130,6 @@ impl Encode<DagJsonCodec> for JsonWebSignature {
     }
 }
 
-impl TryFrom<Decoded> for JsonWebSignature {
-    type Error = Error;
-
-    fn try_from(value: Decoded) -> Result<Self, Self::Error> {
-        Ok(Self {
-            payload: value.payload.ok_or(Error::NotJws)?,
-            signatures: value.signatures.map_or(vec![], |mut sigs| {
-                sigs.drain(..).map(Signature::from).collect()
-            }),
-            link: value.link.ok_or(Error::NotJws)?,
-        })
-    }
-}
-
-impl TryFrom<Encoded> for JsonWebSignature {
-    type Error = Error;
-
-    fn try_from(value: Encoded) -> Result<Self, Self::Error> {
-        let decoded: Decoded = value.into();
-        decoded.try_into()
-    }
-}
-
 /// A signature part of a JSON Web Signature.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature {
@@ -170,22 +139,6 @@ pub struct Signature {
     pub protected: Option<String>,
     /// The web signature base64 url encoded.
     pub signature: String,
-}
-
-impl From<DecodedSignature> for Signature {
-    fn from(value: DecodedSignature) -> Self {
-        Self {
-            header: value.header.unwrap_or_else(|| BTreeMap::new()),
-            protected: value.protected,
-            signature: value.signature,
-        }
-    }
-}
-impl From<EncodedSignature> for Signature {
-    fn from(value: EncodedSignature) -> Self {
-        let decoded: DecodedSignature = value.into();
-        decoded.into()
-    }
 }
 
 /// A JSON Web Encryption object as defined in RFC7516.
@@ -241,32 +194,6 @@ impl Encode<DagJsonCodec> for JsonWebEncryption {
     }
 }
 
-impl TryFrom<Decoded> for JsonWebEncryption {
-    type Error = Error;
-
-    fn try_from(value: Decoded) -> Result<Self, Self::Error> {
-        Ok(Self {
-            aad: value.aad,
-            ciphertext: value.ciphertext.ok_or(Error::NotJwe)?,
-            iv: value.iv.ok_or(Error::NotJwe)?,
-            protected: value.protected.ok_or(Error::NotJwe)?,
-            recipients: value
-                .recipients
-                .map_or(vec![], |mut rs| rs.drain(..).map(Recipient::from).collect()),
-            tag: value.tag.ok_or(Error::NotJwe)?,
-            unprotected: value.unprotected.unwrap_or_else(|| BTreeMap::new()),
-        })
-    }
-}
-impl TryFrom<Encoded> for JsonWebEncryption {
-    type Error = Error;
-
-    fn try_from(value: Encoded) -> Result<Self, Self::Error> {
-        let decoded: Decoded = value.into();
-        decoded.try_into()
-    }
-}
-
 /// A recipient of a JSON Web Encryption message.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Recipient {
@@ -275,22 +202,6 @@ pub struct Recipient {
 
     /// The optional unprotected header.
     pub header: BTreeMap<String, Ipld>,
-}
-
-impl From<DecodedRecipient> for Recipient {
-    fn from(value: DecodedRecipient) -> Self {
-        Self {
-            encrypted_key: value.encrypted_key,
-            header: value.header.unwrap_or_else(|| BTreeMap::new()),
-        }
-    }
-}
-
-impl From<EncodedRecipient> for Recipient {
-    fn from(value: EncodedRecipient) -> Self {
-        let decoded: DecodedRecipient = value.into();
-        decoded.into()
-    }
 }
 
 #[cfg(test)]

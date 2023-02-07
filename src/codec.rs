@@ -1,14 +1,8 @@
-//! Codec provides two flavors of structures for encoding and decoding.
-//!
-//! Encoded* structures represent structures that use binary data
-//! Decoded* structures represent structures that use base64 data
-//!
-//! From implementation are provided between Encoded and Decoded types.
+//! TODO
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld::Cid;
-use libipld::Ipld;
+use libipld::{Cid, Ipld};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,82 +28,152 @@ pub struct Encoded {
 
     // JWS fields
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload: Option<Bytes>,
+    payload: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signatures: Option<Vec<EncodedSignature>>,
+    signatures: Option<Vec<EncodedSignature>>,
 
     // JWE fields
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub iv: Option<Bytes>,
+    iv: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub aad: Option<Bytes>,
+    aad: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tag: Option<Bytes>,
+    tag: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub protected: Option<Bytes>,
+    protected: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ciphertext: Option<Bytes>,
+    ciphertext: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipients: Option<Vec<EncodedRecipient>>,
+    recipients: Option<Vec<EncodedRecipient>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub unprotected: Option<BTreeMap<String, Ipld>>,
-}
-
-impl TryFrom<Decoded> for Encoded {
-    type Error = Error;
-
-    fn try_from(value: Decoded) -> Result<Self, Self::Error> {
-        Ok(Self {
-            payload: Option::from_base64(value.payload)?,
-            signatures: value
-                .signatures
-                .map(|mut sigs| {
-                    sigs.drain(..)
-                        .map(EncodedSignature::try_from)
-                        .collect::<Result<Vec<EncodedSignature>, Self::Error>>()
-                })
-                .transpose()?,
-            aad: Option::from_base64(value.aad)?,
-            ciphertext: Option::from_base64(value.ciphertext)?,
-            iv: Option::from_base64(value.iv)?,
-            protected: Option::from_base64(value.protected)?,
-            recipients: value
-                .recipients
-                .map(|mut rs| {
-                    rs.drain(..)
-                        .map(EncodedRecipient::try_from)
-                        .collect::<Result<Vec<EncodedRecipient>, Self::Error>>()
-                })
-                .transpose()?,
-            tag: Option::from_base64(value.tag)?,
-            unprotected: value.unprotected,
-        })
-    }
+    unprotected: Option<BTreeMap<String, Ipld>>,
 }
 
 impl TryFrom<JsonWebSignature> for Encoded {
     type Error = Error;
 
-    fn try_from(value: JsonWebSignature) -> Result<Self, Self::Error> {
-        let decoded: Decoded = value.into();
-        decoded.try_into()
+    fn try_from(mut value: JsonWebSignature) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: Some(Bytes::from_base64(value.payload)?),
+            signatures: if value.signatures.is_empty() {
+                None
+            } else {
+                Some(
+                    value
+                        .signatures
+                        .drain(..)
+                        .map(EncodedSignature::try_from)
+                        .collect::<Result<Vec<EncodedSignature>, Self::Error>>()?,
+                )
+            },
+            aad: None,
+            ciphertext: None,
+            iv: None,
+            protected: None,
+            recipients: None,
+            tag: None,
+            unprotected: None,
+        })
+    }
+}
+
+impl TryFrom<Encoded> for JsonWebSignature {
+    type Error = Error;
+
+    fn try_from(value: Encoded) -> Result<Self, Self::Error> {
+        let link = Cid::try_from(value.payload.as_ref().ok_or(Error::NotJws)?.as_slice())?;
+        Ok(Self {
+            payload: value.payload.to_base64().ok_or(Error::NotJws)?,
+            signatures: value
+                .signatures
+                .unwrap_or_else(|| Vec::new())
+                .drain(..)
+                .map(Signature::from)
+                .collect(),
+            link,
+        })
     }
 }
 
 impl TryFrom<JsonWebEncryption> for Encoded {
     type Error = Error;
 
-    fn try_from(value: JsonWebEncryption) -> Result<Self, Self::Error> {
-        let decoded: Decoded = value.into();
-        decoded.try_into()
+    fn try_from(mut value: JsonWebEncryption) -> Result<Self, Self::Error> {
+        Ok(Self {
+            payload: None,
+            signatures: None,
+            iv: if value.iv.is_empty() {
+                None
+            } else {
+                Some(Bytes::from_base64(value.iv)?)
+            },
+            aad: Option::from_base64(value.aad)?,
+            tag: if value.tag.is_empty() {
+                None
+            } else {
+                Some(Bytes::from_base64(value.tag)?)
+            },
+            protected: if value.protected.is_empty() { None } else {Some(Bytes::from_base64(value.protected)?)},
+            ciphertext: Some(Bytes::from_base64(value.ciphertext)?),
+            recipients: if value.recipients.is_empty() {
+                None
+            } else {
+                Some(
+                    value
+                        .recipients
+                        .drain(..)
+                        .map(EncodedRecipient::try_from)
+                        .collect::<Result<Vec<EncodedRecipient>, Self::Error>>()?,
+                )
+            },
+            unprotected: if value.unprotected.is_empty() {
+                None
+            } else {
+                Some(value.unprotected)
+            },
+        })
+    }
+}
+
+impl TryFrom<Encoded> for JsonWebEncryption {
+    type Error = Error;
+
+    fn try_from(value: Encoded) -> Result<Self, Self::Error> {
+        Ok(Self {
+            aad: value.aad.to_base64(),
+            ciphertext: value.ciphertext.to_base64().ok_or(Error::NotJwe)?,
+            iv: value.iv.to_base64().ok_or(Error::NotJwe)?,
+            protected: value.protected.to_base64().ok_or(Error::NotJwe)?,
+            recipients: value
+                .recipients
+                .unwrap_or_else(|| Vec::new())
+                .drain(..)
+                .map(Recipient::from)
+                .collect(),
+            tag: value.tag.to_base64().ok_or(Error::NotJwe)?,
+            unprotected: value.unprotected.unwrap_or_else(|| BTreeMap::new()),
+        })
     }
 }
 impl TryFrom<Jose> for Encoded {
     type Error = Error;
 
     fn try_from(value: Jose) -> Result<Self, Self::Error> {
-        let decoded: Decoded = value.into();
-        decoded.try_into()
+        match value {
+            Jose::Signature(jws) => jws.try_into(),
+            Jose::Encryption(jwe) => jwe.try_into(),
+        }
+    }
+}
+
+impl TryFrom<Encoded> for Jose {
+    type Error = Error;
+
+    fn try_from(value: Encoded) -> Result<Self, Self::Error> {
+        Ok(match value.payload {
+            Some(_) => Jose::Signature(value.try_into()?),
+            None => Jose::Encryption(value.try_into()?),
+        })
     }
 }
 
@@ -120,7 +184,6 @@ pub struct EncodedSignature {
     // sorted by length of key.
     //
     // We explicilty order the fields correctly below
-    
     #[serde(skip_serializing_if = "Option::is_none")]
     header: Option<BTreeMap<String, Ipld>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -128,15 +191,29 @@ pub struct EncodedSignature {
     signature: Bytes,
 }
 
-impl TryFrom<DecodedSignature> for EncodedSignature {
+impl TryFrom<Signature> for EncodedSignature {
     type Error = Error;
 
-    fn try_from(value: DecodedSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: Signature) -> Result<Self, Self::Error> {
         Ok(Self {
-            header: value.header,
+            header: if value.header.is_empty() {
+                None
+            } else {
+                Some(value.header)
+            },
             protected: Option::from_base64(value.protected)?,
             signature: Bytes::from_base64(value.signature)?,
         })
+    }
+}
+
+impl From<EncodedSignature> for Signature {
+    fn from(value: EncodedSignature) -> Self {
+        Self {
+            header: value.header.unwrap_or_else(|| BTreeMap::new()),
+            protected: value.protected.to_base64(),
+            signature: value.signature.to_base64(),
+        }
     }
 }
 
@@ -153,192 +230,26 @@ pub struct EncodedRecipient {
     encrypted_key: Option<Bytes>,
 }
 
-impl TryFrom<DecodedRecipient> for EncodedRecipient {
+impl TryFrom<Recipient> for EncodedRecipient {
     type Error = Error;
 
-    fn try_from(value: DecodedRecipient) -> Result<Self, Self::Error> {
+    fn try_from(value: Recipient) -> Result<Self, Self::Error> {
         Ok(Self {
+            header: if value.header.is_empty() {
+                None
+            } else {
+                Some(value.header)
+            },
             encrypted_key: Option::from_base64(value.encrypted_key)?,
-            header: value.header,
         })
     }
 }
 
-/// Decoded represents the union of fields from JSON Web Signature (JWS)
-/// and JSON Web Encryption (JWE) objects.
-///
-/// The data is repsented as base64 URL encoded strings and enabling
-/// direct conversion into a publicly exposed struct.
-///
-/// See https://ipld.io/specs/codecs/dag-jose/spec/#decoded-jose
-#[derive(PartialEq, Default, Debug)]
-pub struct Decoded {
-    // JWS fields
-    pub payload: Option<String>,
-    pub signatures: Option<Vec<DecodedSignature>>,
-    pub link: Option<Cid>,
-
-    // JWE fields
-    pub aad: Option<String>,
-    pub ciphertext: Option<String>,
-    pub iv: Option<String>,
-    pub protected: Option<String>,
-    pub recipients: Option<Vec<DecodedRecipient>>,
-    pub tag: Option<String>,
-    pub unprotected: Option<BTreeMap<String, Ipld>>,
-}
-
-impl From<Encoded> for Decoded {
-    fn from(value: Encoded) -> Self {
-        let link = value
-            .payload
-            .as_ref()
-            .map(|v| Cid::try_from(v.as_slice()))
-            .transpose()
-            .expect("TODO");
-        Self {
-            payload: value.payload.to_base64(),
-            signatures: value
-                .signatures
-                .map(|mut sigs| sigs.drain(..).map(DecodedSignature::from).collect()),
-            link,
-            aad: value.aad.to_base64(),
-            ciphertext: value.ciphertext.to_base64(),
-            iv: value.iv.to_base64(),
-            protected: value.protected.to_base64(),
-            recipients: value
-                .recipients
-                .map(|mut rs| rs.drain(..).map(DecodedRecipient::from).collect()),
-            tag: value.tag.to_base64(),
-            unprotected: value.unprotected,
-        }
-    }
-}
-
-impl From<JsonWebSignature> for Decoded {
-    fn from(mut value: JsonWebSignature) -> Self {
-        Self {
-            payload: Some(value.payload),
-            signatures: if value.signatures.is_empty() {
-                None
-            } else {
-                Some(
-                    value
-                        .signatures
-                        .drain(..)
-                        .map(DecodedSignature::from)
-                        .collect(),
-                )
-            },
-            link: Some(value.link),
-            aad: None,
-            ciphertext: None,
-            iv: None,
-            protected: None,
-            recipients: None,
-            tag: None,
-            unprotected: None,
-        }
-    }
-}
-impl From<JsonWebEncryption> for Decoded {
-    fn from(mut value: JsonWebEncryption) -> Self {
-        Self {
-            payload: None,
-            signatures: None,
-            link: None,
-            aad: value.aad,
-            ciphertext: Some(value.ciphertext),
-            iv: Some(value.iv),
-            protected: Some(value.protected),
-            recipients: if value.recipients.is_empty() {
-                None
-            } else {
-                Some(
-                    value
-                        .recipients
-                        .drain(..)
-                        .map(DecodedRecipient::from)
-                        .collect(),
-                )
-            },
-            tag: Some(value.tag),
-            unprotected: if value.unprotected.is_empty() {
-                None
-            } else {
-                Some(value.unprotected)
-            },
-        }
-    }
-}
-impl From<Jose> for Decoded {
-    fn from(value: Jose) -> Self {
-        match value {
-            Jose::Signature(jws) => Decoded::from(jws),
-            Jose::Encryption(jwe) => Decoded::from(jwe),
-        }
-    }
-}
-
-/// Decoded form of a JWS signature
-#[derive(PartialEq, Default, Debug, Serialize, Deserialize)]
-pub struct DecodedSignature {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub header: Option<BTreeMap<String, Ipld>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub protected: Option<String>,
-    pub signature: String,
-}
-
-impl From<EncodedSignature> for DecodedSignature {
-    fn from(value: EncodedSignature) -> Self {
-        Self {
-            header: value.header,
-            protected: value.protected.to_base64(),
-            signature: value.signature.to_base64(),
-        }
-    }
-}
-
-impl From<Signature> for DecodedSignature {
-    fn from(value: Signature) -> Self {
-        Self {
-            header: if value.header.is_empty() {
-                None
-            } else {
-                Some(value.header)
-            },
-            protected: value.protected,
-            signature: value.signature,
-        }
-    }
-}
-
-/// Decoded form of a JWE recipient
-#[derive(PartialEq, Default, Debug, Serialize, Deserialize)]
-pub struct DecodedRecipient {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encrypted_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub header: Option<BTreeMap<String, Ipld>>,
-}
-impl From<EncodedRecipient> for DecodedRecipient {
+impl From<EncodedRecipient> for Recipient {
     fn from(value: EncodedRecipient) -> Self {
         Self {
             encrypted_key: value.encrypted_key.to_base64(),
-            header: value.header,
-        }
-    }
-}
-impl From<Recipient> for DecodedRecipient {
-    fn from(value: Recipient) -> Self {
-        Self {
-            encrypted_key: value.encrypted_key,
-            header: if value.header.is_empty() {
-                None
-            } else {
-                Some(value.header)
-            },
+            header: value.header.unwrap_or_else(|| BTreeMap::new()),
         }
     }
 }
