@@ -49,19 +49,19 @@ pub struct Encoded {
     unprotected: Option<BTreeMap<String, Ipld>>,
 }
 
-impl TryFrom<JsonWebSignature> for Encoded {
+impl<'a> TryFrom<&'a JsonWebSignature> for Encoded {
     type Error = Error;
 
-    fn try_from(mut value: JsonWebSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a JsonWebSignature) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: Some(Bytes::from_base64(value.payload)?),
+            payload: Some(Bytes::from_base64(value.payload.as_str())?),
             signatures: if value.signatures.is_empty() {
                 None
             } else {
                 Some(
                     value
                         .signatures
-                        .drain(..)
+                        .iter()
                         .map(EncodedSignature::try_from)
                         .collect::<Result<Vec<EncodedSignature>, Self::Error>>()?,
                 )
@@ -95,33 +95,37 @@ impl TryFrom<Encoded> for JsonWebSignature {
     }
 }
 
-impl TryFrom<JsonWebEncryption> for Encoded {
+impl<'a> TryFrom<&'a JsonWebEncryption> for Encoded {
     type Error = Error;
 
-    fn try_from(mut value: JsonWebEncryption) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a JsonWebEncryption) -> Result<Self, Self::Error> {
         Ok(Self {
             payload: None,
             signatures: None,
             iv: if value.iv.is_empty() {
                 None
             } else {
-                Some(Bytes::from_base64(value.iv)?)
+                Some(Bytes::from_base64(value.iv.as_str())?)
             },
-            aad: Option::from_base64(value.aad)?,
+            aad: Option::from_base64(value.aad.as_ref().map(|v| v.as_str()))?,
             tag: if value.tag.is_empty() {
                 None
             } else {
-                Some(Bytes::from_base64(value.tag)?)
+                Some(Bytes::from_base64(value.tag.as_str())?)
             },
-            protected: if value.protected.is_empty() { None } else {Some(Bytes::from_base64(value.protected)?)},
-            ciphertext: Some(Bytes::from_base64(value.ciphertext)?),
+            protected: if value.protected.is_empty() {
+                None
+            } else {
+                Some(Bytes::from_base64(value.protected.as_str())?)
+            },
+            ciphertext: Some(Bytes::from_base64(value.ciphertext.as_str())?),
             recipients: if value.recipients.is_empty() {
                 None
             } else {
                 Some(
                     value
                         .recipients
-                        .drain(..)
+                        .iter()
                         .map(EncodedRecipient::try_from)
                         .collect::<Result<Vec<EncodedRecipient>, Self::Error>>()?,
                 )
@@ -129,7 +133,7 @@ impl TryFrom<JsonWebEncryption> for Encoded {
             unprotected: if value.unprotected.is_empty() {
                 None
             } else {
-                Some(value.unprotected)
+                Some(value.unprotected.to_owned())
             },
         })
     }
@@ -155,10 +159,10 @@ impl TryFrom<Encoded> for JsonWebEncryption {
         })
     }
 }
-impl TryFrom<Jose> for Encoded {
+impl<'a> TryFrom<&'a Jose> for Encoded {
     type Error = Error;
 
-    fn try_from(value: Jose) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a Jose) -> Result<Self, Self::Error> {
         match value {
             Jose::Signature(jws) => jws.try_into(),
             Jose::Encryption(jwe) => jwe.try_into(),
@@ -191,18 +195,18 @@ pub struct EncodedSignature {
     signature: Bytes,
 }
 
-impl TryFrom<Signature> for EncodedSignature {
+impl<'a> TryFrom<&'a Signature> for EncodedSignature {
     type Error = Error;
 
-    fn try_from(value: Signature) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a Signature) -> Result<Self, Self::Error> {
         Ok(Self {
             header: if value.header.is_empty() {
                 None
             } else {
-                Some(value.header)
+                Some(value.header.to_owned())
             },
-            protected: Option::from_base64(value.protected)?,
-            signature: Bytes::from_base64(value.signature)?,
+            protected: Option::from_base64(value.protected.as_ref().map(|v| v.as_str()))?,
+            signature: Bytes::from_base64(value.signature.as_str())?,
         })
     }
 }
@@ -230,17 +234,17 @@ pub struct EncodedRecipient {
     encrypted_key: Option<Bytes>,
 }
 
-impl TryFrom<Recipient> for EncodedRecipient {
+impl<'a> TryFrom<&'a Recipient> for EncodedRecipient {
     type Error = Error;
 
-    fn try_from(value: Recipient) -> Result<Self, Self::Error> {
+    fn try_from(value: &'a Recipient) -> Result<Self, Self::Error> {
         Ok(Self {
             header: if value.header.is_empty() {
                 None
             } else {
-                Some(value.header)
+                Some(value.header.to_owned())
             },
-            encrypted_key: Option::from_base64(value.encrypted_key)?,
+            encrypted_key: Option::from_base64(value.encrypted_key.as_ref().map(|v| v.as_str()))?,
         })
     }
 }
@@ -261,11 +265,11 @@ trait FromBase64<T>: Sized {
     fn from_base64(value: T) -> Result<Self, Self::Error>;
 }
 
-impl FromBase64<String> for Bytes {
+impl<'a> FromBase64<&'a str> for Bytes {
     type Error = Error;
 
-    fn from_base64(value: String) -> Result<Self, Self::Error> {
-        Ok((base64_url::decode(value.as_str())?).into())
+    fn from_base64(value: &'a str) -> Result<Self, Self::Error> {
+        Ok((base64_url::decode(value)?).into())
     }
 }
 

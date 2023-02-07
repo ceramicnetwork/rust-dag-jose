@@ -64,7 +64,7 @@ pub enum Jose {
 
 impl Encode<DagJoseCodec> for Jose {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        let encoded: Encoded = self.clone().try_into()?;
+        let encoded: Encoded = self.try_into()?;
         Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
     }
 }
@@ -92,7 +92,6 @@ impl Encode<DagJsonCodec> for Jose {
 #[derive(Clone, Debug, PartialEq)]
 pub struct JsonWebSignature {
     /// The payload base64 url encoded.
-    // TODO Create a Base64Url encoded string type?
     pub payload: String,
 
     /// The set of signatures.
@@ -104,8 +103,7 @@ pub struct JsonWebSignature {
 
 impl Encode<DagJoseCodec> for JsonWebSignature {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        //TODO use reference
-        let encoded: Encoded = self.clone().try_into()?;
+        let encoded: Encoded = self.try_into()?;
         Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
     }
 }
@@ -168,7 +166,7 @@ pub struct JsonWebEncryption {
 }
 impl Encode<DagJoseCodec> for JsonWebEncryption {
     fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        let encoded: Encoded = self.clone().try_into()?;
+        let encoded: Encoded = self.try_into()?;
         Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
     }
 }
