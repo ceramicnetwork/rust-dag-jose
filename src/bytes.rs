@@ -8,10 +8,6 @@ use serde::{
 pub struct Bytes(Vec<u8>);
 
 impl Bytes {
-    /// Unwraps this `Bytes` returning the underlying vector.
-    pub fn into_inner(self) -> Vec<u8> {
-        self.0
-    }
     pub fn as_slice(&self) -> &[u8] {
         &self.0[..]
     }
@@ -56,8 +52,8 @@ impl From<Vec<u8>> for Bytes {
     }
 }
 
-impl From<Bytes> for Vec<u8> {
-    fn from(value: Bytes) -> Self {
-        value.into_inner()
+impl AsRef<[u8]> for Bytes {
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
     }
 }

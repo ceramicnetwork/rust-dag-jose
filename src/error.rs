@@ -7,7 +7,7 @@ use thiserror::Error;
 pub enum Error {
     #[error("data not a JWE value")]
     NotJwe,
-    #[error("data not a JWE value")]
+    #[error("data not a JWS value")]
     NotJws,
     #[error("invalid CID data in payload")]
     InvalidCid(#[from] cid::Error),

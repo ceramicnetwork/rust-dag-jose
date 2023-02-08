@@ -54,7 +54,7 @@ impl<'a> TryFrom<&'a JsonWebSignature> for Encoded {
 
     fn try_from(value: &'a JsonWebSignature) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: Some(Bytes::from_base64(value.payload.as_str())?),
+            payload: Some(value.payload.decode_base64()?),
             signatures: if value.signatures.is_empty() {
                 None
             } else {
@@ -66,13 +66,7 @@ impl<'a> TryFrom<&'a JsonWebSignature> for Encoded {
                         .collect::<Result<Vec<EncodedSignature>, Self::Error>>()?,
                 )
             },
-            aad: None,
-            ciphertext: None,
-            iv: None,
-            protected: None,
-            recipients: None,
-            tag: None,
-            unprotected: None,
+            ..Default::default()
         })
     }
 }
@@ -83,11 +77,14 @@ impl TryFrom<Encoded> for JsonWebSignature {
     fn try_from(value: Encoded) -> Result<Self, Self::Error> {
         let link = Cid::try_from(value.payload.as_ref().ok_or(Error::NotJws)?.as_slice())?;
         Ok(Self {
-            payload: value.payload.to_base64().ok_or(Error::NotJws)?,
+            payload: value
+                .payload
+                .map(|v| v.encode_base64())
+                .ok_or(Error::NotJws)?,
             signatures: value
                 .signatures
                 .unwrap_or_else(|| Vec::new())
-                .drain(..)
+                .into_iter()
                 .map(Signature::from)
                 .collect(),
             link,
@@ -100,25 +97,23 @@ impl<'a> TryFrom<&'a JsonWebEncryption> for Encoded {
 
     fn try_from(value: &'a JsonWebEncryption) -> Result<Self, Self::Error> {
         Ok(Self {
-            payload: None,
-            signatures: None,
             iv: if value.iv.is_empty() {
                 None
             } else {
-                Some(Bytes::from_base64(value.iv.as_str())?)
+                Some(value.iv.decode_base64()?)
             },
-            aad: Option::from_base64(value.aad.as_ref().map(|v| v.as_str()))?,
+            aad: value.aad.as_ref().map(|v| v.decode_base64()).transpose()?,
             tag: if value.tag.is_empty() {
                 None
             } else {
-                Some(Bytes::from_base64(value.tag.as_str())?)
+                Some(value.tag.decode_base64()?)
             },
             protected: if value.protected.is_empty() {
                 None
             } else {
-                Some(Bytes::from_base64(value.protected.as_str())?)
+                Some(value.protected.decode_base64()?)
             },
-            ciphertext: Some(Bytes::from_base64(value.ciphertext.as_str())?),
+            ciphertext: Some(value.ciphertext.decode_base64()?),
             recipients: if value.recipients.is_empty() {
                 None
             } else {
@@ -135,6 +130,7 @@ impl<'a> TryFrom<&'a JsonWebEncryption> for Encoded {
             } else {
                 Some(value.unprotected.to_owned())
             },
+            ..Default::default()
         })
     }
 }
@@ -144,17 +140,23 @@ impl TryFrom<Encoded> for JsonWebEncryption {
 
     fn try_from(value: Encoded) -> Result<Self, Self::Error> {
         Ok(Self {
-            aad: value.aad.to_base64(),
-            ciphertext: value.ciphertext.to_base64().ok_or(Error::NotJwe)?,
-            iv: value.iv.to_base64().ok_or(Error::NotJwe)?,
-            protected: value.protected.to_base64().ok_or(Error::NotJwe)?,
+            aad: value.aad.map(|v| v.encode_base64()),
+            ciphertext: value
+                .ciphertext
+                .map(|v| v.encode_base64())
+                .ok_or(Error::NotJwe)?,
+            iv: value.iv.map(|v| v.encode_base64()).ok_or(Error::NotJwe)?,
+            protected: value
+                .protected
+                .map(|v| v.encode_base64())
+                .ok_or(Error::NotJwe)?,
             recipients: value
                 .recipients
                 .unwrap_or_else(|| Vec::new())
-                .drain(..)
+                .into_iter()
                 .map(Recipient::from)
                 .collect(),
-            tag: value.tag.to_base64().ok_or(Error::NotJwe)?,
+            tag: value.tag.map(|v| v.encode_base64()).ok_or(Error::NotJwe)?,
             unprotected: value.unprotected.unwrap_or_else(|| BTreeMap::new()),
         })
     }
@@ -205,8 +207,12 @@ impl<'a> TryFrom<&'a Signature> for EncodedSignature {
             } else {
                 Some(value.header.to_owned())
             },
-            protected: Option::from_base64(value.protected.as_ref().map(|v| v.as_str()))?,
-            signature: Bytes::from_base64(value.signature.as_str())?,
+            protected: value
+                .protected
+                .as_ref()
+                .map(|v| v.decode_base64())
+                .transpose()?,
+            signature: value.signature.decode_base64()?,
         })
     }
 }
@@ -215,8 +221,8 @@ impl From<EncodedSignature> for Signature {
     fn from(value: EncodedSignature) -> Self {
         Self {
             header: value.header.unwrap_or_else(|| BTreeMap::new()),
-            protected: value.protected.to_base64(),
-            signature: value.signature.to_base64(),
+            protected: value.protected.map(|v| v.encode_base64()),
+            signature: value.signature.encode_base64(),
         }
     }
 }
@@ -244,7 +250,11 @@ impl<'a> TryFrom<&'a Recipient> for EncodedRecipient {
             } else {
                 Some(value.header.to_owned())
             },
-            encrypted_key: Option::from_base64(value.encrypted_key.as_ref().map(|v| v.as_str()))?,
+            encrypted_key: value
+                .encrypted_key
+                .as_ref()
+                .map(|v| v.decode_base64())
+                .transpose()?,
         })
     }
 }
@@ -252,52 +262,34 @@ impl<'a> TryFrom<&'a Recipient> for EncodedRecipient {
 impl From<EncodedRecipient> for Recipient {
     fn from(value: EncodedRecipient) -> Self {
         Self {
-            encrypted_key: value.encrypted_key.to_base64(),
+            encrypted_key: value.encrypted_key.map(|v| v.encode_base64()),
             header: value.header.unwrap_or_else(|| BTreeMap::new()),
         }
     }
 }
 
-trait FromBase64<T>: Sized {
-    type Error;
+/// Decode base64 url encoded data from Self into T.
+trait DecodeBase64<T: From<Vec<u8>>>: AsRef<[u8]> {
+    type Error: From<base64_url::base64::DecodeError>;
 
-    /// Decode a value from base64
-    fn from_base64(value: T) -> Result<Self, Self::Error>;
+    fn decode_base64(&self) -> Result<T, Self::Error> {
+        Ok(T::from(base64_url::decode(self.as_ref())?))
+    }
 }
 
-impl<'a> FromBase64<&'a str> for Bytes {
+impl DecodeBase64<Bytes> for String {
     type Error = Error;
+}
+impl<'a> DecodeBase64<Bytes> for &'a str {
+    type Error = Error;
+}
 
-    fn from_base64(value: &'a str) -> Result<Self, Self::Error> {
-        Ok((base64_url::decode(value)?).into())
+/// Encode data from Self into a base64 url encoded string.
+trait EncodeBase64: AsRef<[u8]> {
+    /// Encode value using base64 url encoding.
+    fn encode_base64(&self) -> String {
+        base64_url::encode(self.as_ref())
     }
 }
 
-impl<T, U> FromBase64<Option<T>> for Option<U>
-where
-    U: FromBase64<T>,
-{
-    type Error = U::Error;
-
-    fn from_base64(value: Option<T>) -> Result<Self, Self::Error> {
-        value.map(|v| U::from_base64(v)).transpose()
-    }
-}
-
-trait ToBase64<T>: Sized {
-    /// Encode value to base64
-    fn to_base64(self) -> T;
-}
-impl ToBase64<String> for Bytes {
-    fn to_base64(self) -> String {
-        base64_url::encode(&self.into_inner())
-    }
-}
-impl<T, U> ToBase64<Option<T>> for Option<U>
-where
-    U: ToBase64<T>,
-{
-    fn to_base64(self) -> Option<T> {
-        self.map(|v| v.to_base64())
-    }
-}
+impl EncodeBase64 for Bytes {}
