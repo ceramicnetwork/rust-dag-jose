@@ -10,16 +10,16 @@ all: build check-fmt check-clippy test
 .PHONY: build
 build:
 	# Build with default features
-	cargo build --locked
+	cargo build
 	# Build with all features
-	cargo build --locked --all-features
+	cargo build --all-features
 
 .PHONY: test
 test:
 	# Test with default features
-	cargo test --locked
+	cargo test
 	# Test with all features
-	cargo test --locked --all-features
+	cargo test --all-features
 
 .PHONY: check-fmt
 check-fmt:
