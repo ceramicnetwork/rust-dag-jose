@@ -1,5 +1,6 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
+#![cfg(feature = "dag-json")]
 
 use anyhow::Result;
 use assert_json_diff::assert_json_eq;
@@ -17,7 +18,7 @@ static FIXTURES: Lazy<Mutex<Document>> = Lazy::new(|| {
         .join("tests")
         .join("fixtures")
         .join("dag-jose.md");
-    Document::from_file(&fpath)
+    Document::from_file(fpath)
         .expect("fixture file dag-jose.md should be a markdown file")
         .into()
 });
@@ -27,7 +28,7 @@ trait HunkFinder<'a>: Sized {
     fn find_hunk(self, name: &str) -> Option<&'a Hunk>;
     fn must_find_hunk(self, name: &str) -> &'a Hunk {
         self.find_hunk(name)
-            .expect(format!("fixture should have hunk: {}", name).as_str())
+            .unwrap_or_else(|| panic!("fixture should have hunk: {}", name))
     }
 }
 // Implement hunk finder for a Document
