@@ -7,7 +7,6 @@
 //! use dag_jose::{DagJoseCodec, Jose};
 //! use libipld::codec::{Decode, Encode};
 //!
-//! fn main() {
 //!     let data = hex::decode("
 //! a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
 //! d05ad727ca11f46a7369676e61747572657381a26970726f7465637465644f7b22616c67223a2245
@@ -23,41 +22,47 @@
 //!     jose.encode(DagJoseCodec, &mut bytes).unwrap();
 //!
 //!     assert_eq!(data, bytes);
-//! }
 //! ```
 //!
-//! With the feature `dag-json` the JOSE values may also be encoded to DAG-JSON.
-//!
-//! ```
-//! use std::io::Cursor;
-//! use dag_jose::{DagJoseCodec, Jose};
-//! use libipld::codec::{Decode, Encode};
-//! use libipld_json::DagJsonCodec;
-//!
-//! fn main() {
-//!     let data = hex::decode("
-//! a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
-//! d05ad727ca11f46a7369676e61747572657381a26970726f7465637465644f7b22616c67223a2245
-//! 64445341227d697369676e61747572655840fbff49e4e65c979955b9196023534913373416a11beb
-//! fdb256c9146903ddb9c450e287be379ca70a5e7bc039b848fb66d4bd5b96dae986941e04e7968d55
-//! b505".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
-//!
-//!     // Decode binary data into an JOSE value.
-//!     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
-//!
-//!     // Encode an JOSE value into DAG-JSON bytes
-//!     let mut bytes = Vec::new();
-//!     jose.encode(DagJsonCodec, &mut bytes).unwrap();
-//!
-//!     assert_eq!(String::from_utf8(bytes).unwrap(), r#"{
-//!         "link":{"/":"bafyreiejkvsvdq4smz44yuwhfymcuvqzavveoj2at3utujwqlllspsqr6q"},
-//!         "payload":"AXESIIlVZVHDkmZ5zFLHLhgqVhkFakcnQJ7pOibQWtcnyhH0",
-//!         "signatures":[{
-//!             "protected":"eyJhbGciOiJFZERTQSJ9",
-//!             "signature":"-_9J5OZcl5lVuRlgI1NJEzc0FqEb6_2yVskUaQPducRQ4oe-N5ynCl57wDm4SPtm1L1bltrphpQeBOeWjVW1BQ"
-//!         }]}"#.chars().filter(|c| !c.is_whitespace()).collect::<String>());
-//! }
-//! ```
+#![cfg_attr(
+    feature = "dag-json",
+    doc = "
+ With the feature `dag-json` the JOSE values may also be encoded to DAG-JSON.
+
+ ```
+ use std::io::Cursor;
+ use dag_jose::{DagJoseCodec, Jose};
+ use libipld::codec::{Decode, Encode};
+ use libipld_json::DagJsonCodec;
+
+     let data = hex::decode(\"
+ a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
+ d05ad727ca11f46a7369676e61747572657381a26970726f7465637465644f7b22616c67223a2245
+ 64445341227d697369676e61747572655840fbff49e4e65c979955b9196023534913373416a11beb
+ fdb256c9146903ddb9c450e287be379ca70a5e7bc039b848fb66d4bd5b96dae986941e04e7968d55
+ b505\".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
+
+     // Decode binary data into an JOSE value.
+     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
+
+     // Encode an JOSE value into DAG-JSON bytes
+     let mut bytes = Vec::new();
+     jose.encode(DagJsonCodec, &mut bytes).unwrap();
+
+     assert_eq!(String::from_utf8(bytes).unwrap(), r#\"{
+         \"link\":{\"/\":\"bafyreiejkvsvdq4smz44yuwhfymcuvqzavveoj2at3utujwqlllspsqr6q\"},
+         \"payload\":\"AXESIIlVZVHDkmZ5zFLHLhgqVhkFakcnQJ7pOibQWtcnyhH0\",
+         \"signatures\":[{
+             \"protected\":\"eyJhbGciOiJFZERTQSJ9\",
+             \"signature\":\"-_9J5OZcl5lVuRlgI1NJEzc0FqEb6_2yVskUaQPducRQ4oe-N5ynCl57wDm4SPtm1L1bltrphpQeBOeWjVW1BQ\"
+         }]}\"#.chars().filter(|c| !c.is_whitespace()).collect::<String>());
+ ```
+ "
+)]
+#![cfg_attr(
+    not(feature = "dag-json"),
+    doc = "Enable the feature 'dag-json' to be able to encode/decode Jose values using DAG-JSON."
+)]
 #![deny(missing_docs)]
 #![deny(warnings)]
 
@@ -332,56 +337,71 @@ mod tests {
 
     use libipld::{codec::assert_roundtrip, ipld};
 
-    fn fixture_jws() -> (Box<[u8]>, Box<[u8]>, Box<[u8]>) {
+    struct JwsFixture {
+        payload: Box<[u8]>,
+        protected: Box<[u8]>,
+        signature: Box<[u8]>,
+    }
+    fn fixture_jws() -> JwsFixture {
         let payload =
             base64_url::decode("AXESIIlVZVHDkmZ5zFLHLhgqVhkFakcnQJ7pOibQWtcnyhH0").unwrap();
         let protected = base64_url::decode("eyJhbGciOiJFZERTQSJ9").unwrap();
         let signature =  base64_url::decode("-_9J5OZcl5lVuRlgI1NJEzc0FqEb6_2yVskUaQPducRQ4oe-N5ynCl57wDm4SPtm1L1bltrphpQeBOeWjVW1BQ").unwrap();
-        (
-            payload.into_boxed_slice(),
-            protected.into_boxed_slice(),
-            signature.into_boxed_slice(),
-        )
+        JwsFixture {
+            payload: payload.into_boxed_slice(),
+            protected: protected.into_boxed_slice(),
+            signature: signature.into_boxed_slice(),
+        }
     }
     fn fixture_jws_base64(
-        payload: &Box<[u8]>,
-        protected: &Box<[u8]>,
-        signature: &Box<[u8]>,
+        payload: &[u8],
+        protected: &[u8],
+        signature: &[u8],
     ) -> (String, String, String) {
         (
-            base64_url::encode(payload.as_ref()),
-            base64_url::encode(protected.as_ref()),
-            base64_url::encode(signature.as_ref()),
+            base64_url::encode(payload),
+            base64_url::encode(protected),
+            base64_url::encode(signature),
         )
     }
-    fn fixture_jwe() -> (Box<[u8]>, Box<[u8]>, Box<[u8]>, Box<[u8]>) {
+    struct JweFixture {
+        ciphertext: Box<[u8]>,
+        iv: Box<[u8]>,
+        protected: Box<[u8]>,
+        tag: Box<[u8]>,
+    }
+    fn fixture_jwe() -> JweFixture {
         let ciphertext = base64_url::decode("3XqLW28NHP-raqW8vMfIHOzko4N3IRaR").unwrap();
         let iv = base64_url::decode("PSWIuAyO8CpevzCL").unwrap();
         let protected = base64_url::decode("eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4R0NNIn0").unwrap();
         let tag = base64_url::decode("WZAMBblhzDCsQWOAKdlkSA").unwrap();
-        (
-            ciphertext.into_boxed_slice(),
-            iv.into_boxed_slice(),
-            protected.into_boxed_slice(),
-            tag.into_boxed_slice(),
-        )
+        JweFixture {
+            ciphertext: ciphertext.into_boxed_slice(),
+            iv: iv.into_boxed_slice(),
+            protected: protected.into_boxed_slice(),
+            tag: tag.into_boxed_slice(),
+        }
     }
     fn fixture_jwe_base64(
-        ciphertext: &Box<[u8]>,
-        iv: &Box<[u8]>,
-        protected: &Box<[u8]>,
-        tag: &Box<[u8]>,
+        ciphertext: &[u8],
+        iv: &[u8],
+        protected: &[u8],
+        tag: &[u8],
     ) -> (String, String, String, String) {
         (
-            base64_url::encode(ciphertext.as_ref()),
-            base64_url::encode(iv.as_ref()),
-            base64_url::encode(protected.as_ref()),
-            base64_url::encode(tag.as_ref()),
+            base64_url::encode(ciphertext),
+            base64_url::encode(iv),
+            base64_url::encode(protected),
+            base64_url::encode(tag),
         )
     }
     #[test]
     fn roundtrip_jws() {
-        let (payload, protected, signature) = fixture_jws();
+        let JwsFixture {
+            payload,
+            protected,
+            signature,
+        } = fixture_jws();
         let (payload_b64, protected_b64, signature_b64) =
             fixture_jws_base64(&payload, &protected, &signature);
         let link = Cid::try_from(base64_url::decode(&payload_b64).unwrap()).unwrap();
@@ -414,7 +434,12 @@ mod tests {
     }
     #[test]
     fn roundtrip_jwe() {
-        let (ciphertext, iv, protected, tag) = fixture_jwe();
+        let JweFixture {
+            ciphertext,
+            iv,
+            protected,
+            tag,
+        } = fixture_jwe();
         let (ciphertext_b64, iv_b64, protected_b64, tag_b64) =
             fixture_jwe_base64(&ciphertext, &iv, &protected, &tag);
         assert_roundtrip(
