@@ -83,7 +83,7 @@ impl TryFrom<Encoded> for JsonWebSignature {
                 .ok_or(Error::NotJws)?,
             signatures: value
                 .signatures
-                .unwrap_or_else(|| Vec::new())
+                .unwrap_or_default()
                 .into_iter()
                 .map(Signature::from)
                 .collect(),
@@ -152,12 +152,12 @@ impl TryFrom<Encoded> for JsonWebEncryption {
                 .ok_or(Error::NotJwe)?,
             recipients: value
                 .recipients
-                .unwrap_or_else(|| Vec::new())
+                .unwrap_or_default()
                 .into_iter()
                 .map(Recipient::from)
                 .collect(),
             tag: value.tag.map(|v| v.encode_base64()).ok_or(Error::NotJwe)?,
-            unprotected: value.unprotected.unwrap_or_else(|| BTreeMap::new()),
+            unprotected: value.unprotected.unwrap_or_default(),
         })
     }
 }
@@ -220,7 +220,7 @@ impl<'a> TryFrom<&'a Signature> for EncodedSignature {
 impl From<EncodedSignature> for Signature {
     fn from(value: EncodedSignature) -> Self {
         Self {
-            header: value.header.unwrap_or_else(|| BTreeMap::new()),
+            header: value.header.unwrap_or_default(),
             protected: value.protected.map(|v| v.encode_base64()),
             signature: value.signature.encode_base64(),
         }
@@ -263,7 +263,7 @@ impl From<EncodedRecipient> for Recipient {
     fn from(value: EncodedRecipient) -> Self {
         Self {
             encrypted_key: value.encrypted_key.map(|v| v.encode_base64()),
-            header: value.header.unwrap_or_else(|| BTreeMap::new()),
+            header: value.header.unwrap_or_default(),
         }
     }
 }
