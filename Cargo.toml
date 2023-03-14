@@ -13,7 +13,7 @@ dag-json = ["dep:libipld-json"]
 [dependencies]
 anyhow = "1.0.69"
 base64-url = "1.4.13"
-libipld = { version = "0.15.0", default-features = false, features = [
+libipld = { version = "0.16.0", default-features = false, features = [
     "serde-codec",
 ] }
 libipld-json = { version = "0.15.0", default-features = false, optional = true }
