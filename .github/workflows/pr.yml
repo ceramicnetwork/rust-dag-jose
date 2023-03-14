@@ -1,0 +1,8 @@
+---
+name: "Semantic PR and Commit Messages"
+
+on: pull_request
+
+jobs:
+  semantic:
+    uses: influxdata/validate-semantic-github-messages/.github/workflows/semantic.yml@main
