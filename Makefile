@@ -31,3 +31,9 @@ check-clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 	# Check with all features
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+
+.PHONY: release
+release:
+	./scripts/release.sh
+
