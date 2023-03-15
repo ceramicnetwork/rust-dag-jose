@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2023-03-15
+
+### Miscellaneous Tasks
+
+- [Add pr write permission](https://github.com/ceramicnetwork/rust-dag-jose/commit/fb49b93b2bbedf5df582b990a323c35e5a3c20c2)
+- [Setup auth for release workflows](https://github.com/ceramicnetwork/rust-dag-jose/commit/153b508e2d75f225db8d82e2342ad3cf559450d0)
+- [Fix release script to specify upstream](https://github.com/ceramicnetwork/rust-dag-jose/commit/3a63e09f7235e876a1390f11f92fbfc112d42665)
+- [Update release workflow](https://github.com/ceramicnetwork/rust-dag-jose/commit/90f3e042e1212a158b03f84305eaaf897c6809d5)
+- [Release v0.1.1](https://github.com/ceramicnetwork/rust-dag-jose/commit/31d4a1ab46ec6d3898d97c0e11d9b322f0f77ba8)
+
 ## [0.1.1] - 2023-03-15
 
 ### Bug Fixes
@@ -11,7 +21,6 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
-- [Release v0.1.1](https://github.com/ceramicnetwork/rust-dag-jose/commit/31d4a1ab46ec6d3898d97c0e11d9b322f0f77ba8)
 - [Rerun conventional checks on PR edit](https://github.com/ceramicnetwork/rust-dag-jose/commit/5a6fab447d08552bfd2c0325d17148e392a09637)
 - [Remove sudo hack, fix was in build image](https://github.com/ceramicnetwork/rust-dag-jose/commit/2f61a55eed45345f37bcc0e7749e33bf748feb55)
 - [Fix git user permissions error with release action](https://github.com/ceramicnetwork/rust-dag-jose/commit/0a749a843bc56d028c7df53635264e5d48eb0a0f)
