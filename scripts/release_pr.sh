@@ -4,6 +4,7 @@
 # Preparing a release PR does the following:
 # * Deterimes the next version based on changes
 # * Update Cargo.toml with new versions
+# * Create a release branch, commit changes and push branch
 # * Create PR for review
 #
 # Assumptions:
@@ -34,6 +35,9 @@ cargo release version $level \
     --execute \
     --no-confirm
 
+# Version determined by cargo release (without the 'v' prefix)
+version=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')
+
 # Perform pre-release replacements
 cargo release replace \
     --verbose \
@@ -47,8 +51,20 @@ cargo release hook \
     --no-confirm
 
 # Commit the specified packages
-cargo release commit \
-    --verbose \
-    --execute \
-    --no-confirm
+# `cargo release commit` currently fails to build a good commit message.
+# Using git commit directly for now
+branch="release-v${version}"
+git checkout -b "$branch"
+msg="chore: release version v${version}"
+git commit -am "$msg"
+git push origin
 
+# Generate release notes
+release_notes=$(git cliff --unreleased --strip all --tag v$version)
+
+gh pr create \
+    --base main \
+    --head "$branch" \
+    --label release \
+    --title "$msg" \
+    --body "$release_notes"
