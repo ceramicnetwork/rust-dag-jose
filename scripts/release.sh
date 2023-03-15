@@ -1,9 +1,8 @@
 #!/bin/bash -x
-# Script to perform a release.
+# Script to perform a release once a release PR is merged
 #
 # Performing a release does the following:
 # * Tags the git repo with the new release version
-# * Updates Cargo.toml with the new release version
 # * Publishes new release to crates.io
 # * Publishes new release to Github releases
 #
