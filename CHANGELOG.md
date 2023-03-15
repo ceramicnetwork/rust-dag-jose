@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2023-03-15
+
+### Miscellaneous Tasks
+
+- [Update release workflow](https://github.com/ceramicnetwork/rust-dag-jose/commit/fab4d187cd492f0e5d7211dce91ac77cb64018ce)
+
 ## [0.1.1] - 2023-03-15
 
 ### Bug Fixes
