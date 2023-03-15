@@ -29,10 +29,12 @@ case $ret in
     *) exit 1;;
 esac
 
+# Now fail if any of the remaining commands fail
+set -e
+
 # Publish the specified packages
 cargo release publish \
     --verbose \
-    --unpublished \
     --execute \
     --allow-branch main \
     --no-confirm
@@ -40,7 +42,6 @@ cargo release publish \
 # Tag the released commits
 cargo release tag \
     --verbose \
-    --unpublished \
     --execute \
     --allow-branch main \
     --no-confirm
@@ -48,7 +49,6 @@ cargo release tag \
 # Push tags to remote
 cargo release push \
     --verbose \
-    --unpublished \
     --execute \
     --allow-branch main \
     --no-confirm
@@ -60,6 +60,5 @@ release_notes=$(git cliff --latest --strip all)
 # Publish Github release
 gh release create "v$version" \
     --title "v$version" \
-    --latest \
     --notes "$release_notes"
 
