@@ -5,6 +5,7 @@ name: Release PR
 
 permissions:
   contents: write
+  pull-requests: write
 
 on: workflow_dispatch
 
