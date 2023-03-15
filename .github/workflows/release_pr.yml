@@ -1,13 +1,12 @@
-# Action that publishes a release
-# This action run on all commit to main.
-# The action checks if there are any unpublished releases
-# and if not exists.
-# See make release for details
-name: Release
+# Action that creates a release PR
+# Must be manually triggered.
+# See make release-pr for details
+name: Release PR
 
-on:
-  push:
-    branches: [ "main" ]
+permissions:
+  contents: write
+
+on: workflow_dispatch
 
 jobs:
   release:
@@ -24,5 +23,5 @@ jobs:
       - run: |
           git config user.email "github@3box.io"
           git config user.name "Github Automation"
-      - name: Perform release
-        run: make release
+      - name: Create release PR
+        run: make release-pr

@@ -1,9 +1,8 @@
-#!/bin/bash -x
-# Script to perform a release.
+#!/bin/bash
+# Script to perform a release once a release PR is merged
 #
 # Performing a release does the following:
 # * Tags the git repo with the new release version
-# * Updates Cargo.toml with the new release version
 # * Publishes new release to crates.io
 # * Publishes new release to Github releases
 #
@@ -16,24 +15,51 @@
 # * jq is installed
 # * GITHUB_TOKEN is set or gh is authenticated
 # * CARGO_REGISTRY_TOKEN is set or cargo is authenticated
-
-# Fail script if any command fails
-set -e
+# * Cargo.toml has already been updated with the new version
 
 # Ensure we are in the git root
 cd $(git rev-parse --show-toplevel)
 
-# First determine the next release level
-level=$(./scripts/release_level.sh)
+# Check if we need to publish anything
+cargo release --unpublished
+ret=$?
+case $ret in
+    0) echo "Publish needed";;
+    2) echo "Nothing to publish"; exit 0;;
+    *) exit 1;;
+esac
 
-# Perform cargo release, this will tag the repo and publish to crates.io
-cargo release -vv $level -x --no-confirm
+# Publish the specified packages
+cargo release publish \
+    --verbose \
+    --unpublished \
+    --execute \
+    --allow-branch main \
+    --no-confirm
+
+# Tag the released commits
+cargo release tag \
+    --verbose \
+    --unpublished \
+    --execute \
+    --allow-branch main \
+    --no-confirm
+
+# Push tags to remote
+cargo release push \
+    --verbose \
+    --unpublished \
+    --execute \
+    --allow-branch main \
+    --no-confirm
 
 # Version determined by cargo release (without the 'v' prefix)
 version=$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[0].version')
-
 # Generate release notes
 release_notes=$(git cliff --latest --strip all)
-
 # Publish Github release
-gh release create "v$version" --title "v$version" --latest --notes "$release_notes"
+gh release create "v$version" \
+    --title "v$version" \
+    --latest \
+    --notes "$release_notes"
+
