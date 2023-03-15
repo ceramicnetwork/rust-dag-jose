@@ -1,7 +1,9 @@
 ---
-name: "Semantic PR and Commit Messages"
+name: "Conventional PR and Commit Messages"
 
-on: pull_request
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
 
 jobs:
   semantic:
