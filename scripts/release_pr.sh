@@ -26,10 +26,7 @@ cd $(git rev-parse --show-toplevel)
 level=$(./scripts/release_level.sh)
 
 # Print commits since last tag
-cargo release changes \
-    --verbose \
-    --execute \
-    --no-confirm
+cargo release changes
 
 # Bump crate versions
 cargo release version $level \
