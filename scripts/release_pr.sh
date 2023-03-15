@@ -62,7 +62,7 @@ branch="release-v${version}"
 git checkout -b "$branch"
 msg="chore: release version v${version}"
 git commit -am "$msg"
-git push origin
+git push --set-upstream origin $branch
 
 # Create a PR
 gh pr create \
