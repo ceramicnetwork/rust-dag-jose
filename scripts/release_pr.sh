@@ -50,6 +50,11 @@ cargo release hook \
     --execute \
     --no-confirm
 
+# Generate release notes
+release_notes=$(git cliff --unreleased --strip all --tag v$version)
+# Update CHANGELOG
+git cliff --tag v$version --output CHANGELOG.md
+
 # Commit the specified packages
 # `cargo release commit` currently fails to build a good commit message.
 # Using git commit directly for now
@@ -59,12 +64,7 @@ msg="chore: release version v${version}"
 git commit -am "$msg"
 git push origin
 
-# Generate release notes
-release_notes=$(git cliff --unreleased --strip all --tag v$version)
-
-# Update CHANGELOG
-git cliff --tag v$version --output CHANGELOG.md
-
+# Create a PR
 gh pr create \
     --base main \
     --head "$branch" \
