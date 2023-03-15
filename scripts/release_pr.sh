@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 # Script to prepare a release PR
 #
 # Preparing a release PR does the following:
