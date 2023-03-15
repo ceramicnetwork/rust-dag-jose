@@ -62,6 +62,9 @@ git push origin
 # Generate release notes
 release_notes=$(git cliff --unreleased --strip all --tag v$version)
 
+# Update CHANGELOG
+git cliff --unreleased --tag v$version --output CHANGELOG.md
+
 gh pr create \
     --base main \
     --head "$branch" \
