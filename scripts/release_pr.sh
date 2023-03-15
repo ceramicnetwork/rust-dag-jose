@@ -26,7 +26,7 @@ cd $(git rev-parse --show-toplevel)
 level=$(./scripts/release_level.sh)
 
 # Print commits since last tag
-cargo release version $level \
+cargo release changes \
     --verbose \
     --execute \
     --no-confirm
