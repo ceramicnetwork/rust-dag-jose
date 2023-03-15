@@ -33,6 +33,14 @@ check-clippy:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 
+# Prepare a release PR.
+.PHONY: release-pr
+release-pr:
+	./scripts/release_pr.sh
+
+# Publish any unpublished releases.
+# A release PR must first be merged before this target
+# will have any effect.
 .PHONY: release
 release:
 	./scripts/release.sh
