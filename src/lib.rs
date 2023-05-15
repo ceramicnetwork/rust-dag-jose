@@ -64,7 +64,6 @@
     doc = "Enable the feature 'dag-json' to be able to encode/decode Jose values using DAG-JSON."
 )]
 #![deny(missing_docs)]
-#![deny(warnings)]
 
 mod bytes;
 mod codec;

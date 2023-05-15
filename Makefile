@@ -10,9 +10,9 @@ all: build check-fmt check-clippy test
 .PHONY: build
 build:
 	# Build with default features
-	cargo build
+	RUSTFLAGS="-D warnings" cargo build
 	# Build with all features
-	cargo build --all-features
+	RUSTFLAGS="-D warnings" cargo build --all-features
 
 .PHONY: test
 test:
