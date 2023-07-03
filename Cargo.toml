@@ -19,7 +19,7 @@ libipld = { version = "0.15.0", default-features = false, features = [
 libipld-json = { version = "0.15.0", default-features = false, optional = true }
 serde = "1.0.152"
 serde_derive = "1.0.152"
-serde_ipld_dagcbor = "0.3.0"
+serde_ipld_dagcbor = "0.4.0"
 thiserror = "1.0.38"
 
 [dev-dependencies]
