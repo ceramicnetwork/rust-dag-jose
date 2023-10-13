@@ -2,10 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2023-10-13
+
+### Miscellaneous Tasks
+
+- [Update libipld to 0.16](https://github.com/ceramicnetwork/rust-dag-jose/commit/dbbde5198e6010636b815e9f25b6922f52f5d3fe)
+- [Only deny warnings during CI](https://github.com/ceramicnetwork/rust-dag-jose/commit/c1520768397089cacd8a4d2865438b5e642dd882)
+
 ## [0.1.2] - 2023-03-15
 
 ### Miscellaneous Tasks
 
+- [Update release command args](https://github.com/ceramicnetwork/rust-dag-jose/commit/99d3d741b6cb42cf2cfc34dc867a6efad5f1be5a)
+- [Release version v0.1.2](https://github.com/ceramicnetwork/rust-dag-jose/commit/988be47867bb4e9665fcd4370d2baef7bcd0b3a0)
 - [Add pr write permission](https://github.com/ceramicnetwork/rust-dag-jose/commit/fb49b93b2bbedf5df582b990a323c35e5a3c20c2)
 - [Setup auth for release workflows](https://github.com/ceramicnetwork/rust-dag-jose/commit/153b508e2d75f225db8d82e2342ad3cf559450d0)
 - [Fix release script to specify upstream](https://github.com/ceramicnetwork/rust-dag-jose/commit/3a63e09f7235e876a1390f11f92fbfc112d42665)
