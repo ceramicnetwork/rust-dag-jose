@@ -6,13 +6,19 @@ authors = ["Nathaniel Cook <nvcook42@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "ipld dag-jose codec"
 repository = "https://github.com/ceramicnetwork/rust-dag-jose"
+resolver = "2"
 
 [features]
 dag-json = ["dep:libipld-json"]
 
 [dependencies]
 anyhow = "1.0.69"
-base64-url = "2.0.0"
+base64-url = { version = "2.0.1", default-features = false }
+# base64-url no longer honors the std feature, we need to explicitly enable it on base64.
+base64 = { version = "0.21", default-features = false, features = [
+    "alloc",
+    "std",
+] }
 libipld = { version = "0.16.0", default-features = false, features = [
     "serde-codec",
 ] }
