@@ -2,10 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2023-12-12
+
+### Bug Fixes
+
+- [Update base64-url dep with std feature](https://github.com/ceramicnetwork/rust-dag-jose/commit/fd9bde871b86f8cf3cbc5b695ed0ce1c82f2d387)
+
 ## [0.1.3] - 2023-10-13
 
 ### Miscellaneous Tasks
 
+- [Release version v0.1.3](https://github.com/ceramicnetwork/rust-dag-jose/commit/60b430b98698b699f1655f7cca059210f0cd3e1f)
 - [Update libipld to 0.16](https://github.com/ceramicnetwork/rust-dag-jose/commit/dbbde5198e6010636b815e9f25b6922f52f5d3fe)
 - [Only deny warnings during CI](https://github.com/ceramicnetwork/rust-dag-jose/commit/c1520768397089cacd8a4d2865438b5e642dd882)
 
