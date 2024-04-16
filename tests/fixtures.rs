@@ -5,12 +5,11 @@
 use anyhow::Result;
 use assert_json_diff::assert_json_eq;
 use dag_jose::{DagJoseCodec, Jose};
+use ipld_core::codec::Codec;
 use once_cell::sync::Lazy;
-use std::{io::Cursor, path::PathBuf, sync::Mutex};
+use serde_ipld_dagjson::codec::DagJsonCodec;
+use std::{path::PathBuf, sync::Mutex};
 use testmark::{Document, Hunk};
-
-use libipld::codec::{Decode, Encode};
-use libipld_json::DagJsonCodec;
 
 // Load the fixtures file once
 static FIXTURES: Lazy<Mutex<Document>> = Lazy::new(|| {
@@ -69,24 +68,19 @@ fn decode_re_encode(hex_name: &str, json_name: &str) {
     // Decode the hex data into a DAG-JOSE value
     let dag_jose_hex = remove_whitespace(fixtures.must_find_hunk(hex_name).data())
         .expect("hex fixture data should be UTF8");
-    let jose = Jose::decode(
-        DagJoseCodec,
-        &mut Cursor::new(
-            hex::decode(&dag_jose_hex).expect("hex fixture data should be hex encoded"),
-        ),
+    let jose: Jose = DagJoseCodec::decode_from_slice(
+        &hex::decode(&dag_jose_hex).expect("hex fixture data should be hex encoded"),
     )
     .expect("hex fixture data should represent a DAG-JOSE value");
 
     // Test the we can encode back to the same hex data.
-    let mut encoded_bytes = Vec::new();
-    jose.encode(DagJoseCodec, &mut encoded_bytes)
+    let encoded_bytes = DagJoseCodec::encode_to_vec(&jose)
         .expect("encoded DAG-JOSE value should encode to DAG-CBOR");
     assert_eq!(dag_jose_hex, hex::encode(encoded_bytes));
 
     // Re-encode the DAG-JOSE value in DAG-JSON
-    let mut bytes = Vec::new();
-    jose.encode(DagJsonCodec, &mut bytes)
-        .expect("decoded DAG-JOSE value should encode to DAG-CBOR");
+    let bytes = DagJsonCodec::encode_to_vec(&jose)
+        .expect("decoded DAG-JOSE value should encode to DAG-JSON");
     println!(
         "json: {}",
         String::from_utf8(bytes.clone()).expect("JSON bytes should be valid utf-8")
