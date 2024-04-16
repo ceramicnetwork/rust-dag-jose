@@ -3,9 +3,8 @@
 //! Structures are provided for encoding and decoding JSON Web Signatures and Encryption values.
 //!
 //! ```
-//! use std::io::Cursor;
 //! use dag_jose::{DagJoseCodec, Jose};
-//! use libipld::codec::{Decode, Encode};
+//! use ipld_core::codec::Codec;
 //!
 //!     let data = hex::decode("
 //! a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
@@ -15,11 +14,10 @@
 //! b505".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
 //!
 //!     // Decode binary data into an JOSE value.
-//!     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
+//!     let jose: Jose = DagJoseCodec::decode_from_slice(&data).unwrap();
 //!
 //!     // Encode an JOSE value into bytes
-//!     let mut bytes = Vec::new();
-//!     jose.encode(DagJoseCodec, &mut bytes).unwrap();
+//!     let bytes = DagJoseCodec::encode_to_vec(&jose).unwrap();
 //!
 //!     assert_eq!(data, bytes);
 //! ```
@@ -30,10 +28,9 @@
  With the feature `dag-json` the JOSE values may also be encoded to DAG-JSON.
 
  ```
- use std::io::Cursor;
  use dag_jose::{DagJoseCodec, Jose};
- use libipld::codec::{Decode, Encode};
- use libipld_json::DagJsonCodec;
+ use ipld_core::codec::Codec;
+ use serde_ipld_dagjson::codec::DagJsonCodec;
 
      let data = hex::decode(\"
  a2677061796c6f616458240171122089556551c3926679cc52c72e182a5619056a4727409ee93a26
@@ -43,11 +40,10 @@
  b505\".chars().filter(|c| !c.is_whitespace()).collect::<String>()).unwrap();
 
      // Decode binary data into an JOSE value.
-     let jose = Jose::decode(DagJoseCodec, &mut Cursor::new(&data)).unwrap();
+     let jose: Jose = DagJoseCodec::decode_from_slice(&data).unwrap();
 
      // Encode an JOSE value into DAG-JSON bytes
-     let mut bytes = Vec::new();
-     jose.encode(DagJsonCodec, &mut bytes).unwrap();
+     let bytes = DagJsonCodec::encode_to_vec(&jose).unwrap();
 
      assert_eq!(String::from_utf8(bytes).unwrap(), r#\"{
          \"link\":{\"/\":\"bafyreiejkvsvdq4smz44yuwhfymcuvqzavveoj2at3utujwqlllspsqr6q\"},
@@ -69,17 +65,18 @@ mod bytes;
 mod codec;
 mod error;
 
-use std::{collections::BTreeMap, io::BufReader};
+use std::collections::BTreeMap;
 
-use libipld::error::UnsupportedCodec;
-use libipld::Cid;
-use libipld::Ipld;
-use libipld::{
-    codec::{Codec, Decode, Encode},
+use ipld_core::{
+    cid::Cid,
+    codec::{Codec, Links},
     ipld,
+    ipld::Ipld,
 };
+use serde_derive::Serialize;
+use serde_ipld_dagcbor::codec::DagCborCodec;
 #[cfg(feature = "dag-json")]
-use libipld_json::DagJsonCodec;
+use serde_ipld_dagjson::codec::DagJsonCodec;
 
 use codec::Encoded;
 
@@ -87,34 +84,24 @@ use codec::Encoded;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DagJoseCodec;
 
-impl Codec for DagJoseCodec {}
+impl Links for DagJoseCodec {
+    type LinksError = error::Error;
 
-impl From<DagJoseCodec> for u64 {
-    fn from(_: DagJoseCodec) -> Self {
-        // Multicode comes from here https://github.com/multiformats/multicodec/blob/master/table.csv
-        0x85
+    fn links(bytes: &[u8]) -> Result<impl Iterator<Item = Cid>, Self::LinksError> {
+        Ok(DagCborCodec::links(bytes)?)
     }
 }
+impl Codec<Ipld> for DagJoseCodec {
+    const CODE: u64 = 0x85;
 
-impl TryFrom<u64> for DagJoseCodec {
-    type Error = UnsupportedCodec;
+    type Error = error::Error;
 
-    fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
-        Ok(Self)
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<Ipld, Self::Error> {
+        Ok(serde_ipld_dagcbor::from_reader(reader)?)
     }
-}
 
-impl Encode<DagJoseCodec> for Ipld {
-    fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        Ok(serde_ipld_dagcbor::to_writer(w, self)?)
-    }
-}
-impl Decode<DagJoseCodec> for Ipld {
-    fn decode<R: std::io::Read + std::io::Seek>(
-        _c: DagJoseCodec,
-        r: &mut R,
-    ) -> anyhow::Result<Self> {
-        Ok(serde_ipld_dagcbor::from_reader(BufReader::new(r))?)
+    fn encode<W: std::io::Write>(writer: W, data: &Ipld) -> Result<(), Self::Error> {
+        Ok(serde_ipld_dagcbor::to_writer(writer, data)?)
     }
 }
 
@@ -127,43 +114,51 @@ pub enum Jose {
     Encryption(JsonWebEncryption),
 }
 
-impl Encode<DagJoseCodec> for Jose {
-    fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        let encoded: Encoded = self.try_into()?;
-        Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
+impl Codec<Jose> for DagJoseCodec {
+    const CODE: u64 = 0x85;
+
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<Jose, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagcbor::from_reader(reader)?;
+        encoded.try_into()
     }
-}
-impl Decode<DagJoseCodec> for Jose {
-    fn decode<R: std::io::Read + std::io::Seek>(
-        _c: DagJoseCodec,
-        r: &mut R,
-    ) -> anyhow::Result<Self> {
-        let encoded: Encoded = serde_ipld_dagcbor::from_reader(BufReader::new(r))?;
-        Ok(encoded.try_into()?)
+
+    fn encode<W: std::io::Write>(writer: W, data: &Jose) -> Result<(), Self::Error> {
+        let encoded: Encoded = data.try_into()?;
+        Ok(serde_ipld_dagcbor::to_writer(writer, &encoded)?)
     }
 }
 
 #[cfg(feature = "dag-json")]
-impl Encode<DagJsonCodec> for Jose {
-    fn encode<W: std::io::Write>(&self, c: DagJsonCodec, w: &mut W) -> anyhow::Result<()> {
-        match self {
-            Jose::Signature(jws) => jws.encode(c, w),
-            Jose::Encryption(jwe) => jwe.encode(c, w),
+impl Codec<Jose> for DagJsonCodec {
+    const CODE: u64 = 0x0129;
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<Jose, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagjson::from_reader(reader)?;
+        encoded.try_into()
+    }
+
+    fn encode<W: std::io::Write>(writer: W, data: &Jose) -> Result<(), Self::Error> {
+        match data {
+            Jose::Signature(jws) => DagJsonCodec::encode(writer, jws),
+            Jose::Encryption(jwe) => DagJsonCodec::encode(writer, jwe),
         }
     }
 }
 
 /// A JSON Web Signature object as defined in RFC7515.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct JsonWebSignature {
+    /// CID link from the payload.
+    pub link: Cid,
+
     /// The payload base64 url encoded.
     pub payload: String,
 
     /// The set of signatures.
     pub signatures: Vec<Signature>,
-
-    /// CID link from the payload.
-    pub link: Cid,
 }
 
 impl<'a> From<&'a JsonWebSignature> for Ipld {
@@ -176,33 +171,46 @@ impl<'a> From<&'a JsonWebSignature> for Ipld {
     }
 }
 
-impl Encode<DagJoseCodec> for JsonWebSignature {
-    fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        let encoded: Encoded = self.try_into()?;
-        Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
+impl Codec<JsonWebSignature> for DagJoseCodec {
+    const CODE: u64 = 0x85;
+
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<JsonWebSignature, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagcbor::from_reader(reader)?;
+        encoded.try_into()
+    }
+
+    fn encode<W: std::io::Write>(writer: W, data: &JsonWebSignature) -> Result<(), Self::Error> {
+        let encoded: Encoded = data.try_into()?;
+        Ok(serde_ipld_dagcbor::to_writer(writer, &encoded)?)
     }
 }
-impl Decode<DagJoseCodec> for JsonWebSignature {
-    fn decode<R: std::io::Read + std::io::Seek>(
-        _c: DagJoseCodec,
-        r: &mut R,
-    ) -> anyhow::Result<Self> {
-        let encoded: Encoded = serde_ipld_dagcbor::from_reader(BufReader::new(r))?;
-        Ok(encoded.try_into()?)
-    }
-}
+
 #[cfg(feature = "dag-json")]
-impl Encode<DagJsonCodec> for JsonWebSignature {
-    fn encode<W: std::io::Write>(&self, c: DagJsonCodec, w: &mut W) -> anyhow::Result<()> {
-        let data: Ipld = self.into();
-        data.encode(c, w)
+impl Codec<JsonWebSignature> for DagJsonCodec {
+    const CODE: u64 = 0x0129;
+
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<JsonWebSignature, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagjson::from_reader(reader)?;
+        encoded.try_into()
+    }
+
+    fn encode<W: std::io::Write>(writer: W, data: &JsonWebSignature) -> Result<(), Self::Error> {
+        // Here we directly encode the JsonWebSignature type without using the Encoded type.
+        // This is because when encoding to DAG-JSON we do not want to encode the payload etc at
+        // raw bytes but instead encode them as base64url encoded strings.
+        Ok(serde_ipld_dagjson::to_writer(writer, &data)?)
     }
 }
 
 /// A signature part of a JSON Web Signature.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Signature {
     /// The optional unprotected header.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub header: BTreeMap<String, Ipld>,
     /// The protected header as a JSON object base64 url encoded.
     pub protected: Option<String>,
@@ -225,9 +233,10 @@ impl<'a> From<&'a Signature> for Ipld {
 }
 
 /// A JSON Web Encryption object as defined in RFC7516.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct JsonWebEncryption {
     /// The optional additional authenticated data.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub aad: Option<String>,
 
     /// The ciphertext value resulting from authenticated encryption of the
@@ -241,12 +250,14 @@ pub struct JsonWebEncryption {
     pub protected: String,
 
     /// The set of recipients.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub recipients: Vec<Recipient>,
 
     /// The authentication tag value resulting from authenticated encryption.
     pub tag: String,
 
     /// The optional unprotected header.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub unprotected: BTreeMap<String, Ipld>,
 }
 
@@ -281,37 +292,50 @@ impl<'a> From<&'a JsonWebEncryption> for Ipld {
         Ipld::Map(fields)
     }
 }
-impl Encode<DagJoseCodec> for JsonWebEncryption {
-    fn encode<W: std::io::Write>(&self, _c: DagJoseCodec, w: &mut W) -> anyhow::Result<()> {
-        let encoded: Encoded = self.try_into()?;
-        Ok(serde_ipld_dagcbor::to_writer(w, &encoded)?)
+
+impl Codec<JsonWebEncryption> for DagJoseCodec {
+    const CODE: u64 = 0x85;
+
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<JsonWebEncryption, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagcbor::from_reader(reader)?;
+        encoded.try_into()
     }
-}
-impl Decode<DagJoseCodec> for JsonWebEncryption {
-    fn decode<R: std::io::Read + std::io::Seek>(
-        _c: DagJoseCodec,
-        r: &mut R,
-    ) -> anyhow::Result<Self> {
-        let encoded: Encoded = serde_ipld_dagcbor::from_reader(BufReader::new(r))?;
-        Ok(encoded.try_into()?)
+
+    fn encode<W: std::io::Write>(writer: W, data: &JsonWebEncryption) -> Result<(), Self::Error> {
+        let encoded: Encoded = data.try_into()?;
+        Ok(serde_ipld_dagcbor::to_writer(writer, &encoded)?)
     }
 }
 
 #[cfg(feature = "dag-json")]
-impl Encode<DagJsonCodec> for JsonWebEncryption {
-    fn encode<W: std::io::Write>(&self, c: DagJsonCodec, w: &mut W) -> anyhow::Result<()> {
-        let data: Ipld = self.into();
-        data.encode(c, w)
+impl Codec<JsonWebEncryption> for DagJsonCodec {
+    const CODE: u64 = 0x0129;
+
+    type Error = error::Error;
+
+    fn decode<R: std::io::BufRead>(reader: R) -> Result<JsonWebEncryption, Self::Error> {
+        let encoded: Encoded = serde_ipld_dagjson::from_reader(reader)?;
+        encoded.try_into()
+    }
+
+    fn encode<W: std::io::Write>(writer: W, data: &JsonWebEncryption) -> Result<(), Self::Error> {
+        // Here we directly encode the JsonWebEncryption type without using the Encoded type.
+        // This is because when encoding to DAG-JSON we do not want to encode the protected field etc as
+        // raw bytes but instead encode them as base64url encoded strings.
+        Ok(serde_ipld_dagjson::to_writer(writer, &data)?)
     }
 }
 
 /// A recipient of a JSON Web Encryption message.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Recipient {
     /// The encrypted content encryption key value.
     pub encrypted_key: Option<String>,
 
     /// The optional unprotected header.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub header: BTreeMap<String, Ipld>,
 }
 
@@ -333,8 +357,6 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-
-    use libipld::{codec::assert_roundtrip, ipld};
 
     struct JwsFixture {
         payload: Box<[u8]>,
@@ -459,5 +481,33 @@ mod tests {
                 "tag": tag,
             }),
         );
+    }
+
+    // Utility for testing codecs.
+    //
+    // Encodes the `data` using the codec `c` and checks that it matches the `ipld`.
+    fn assert_roundtrip<C, T>(_c: C, data: &T, ipld: &Ipld)
+    where
+        C: Codec<T>,
+        C: Codec<Ipld>,
+        <C as Codec<T>>::Error: std::fmt::Debug,
+        <C as Codec<Ipld>>::Error: std::fmt::Debug,
+        T: std::cmp::PartialEq + std::fmt::Debug,
+    {
+        let bytes = C::encode_to_vec(data).unwrap();
+        let bytes2 = C::encode_to_vec(ipld).unwrap();
+        if bytes != bytes2 {
+            panic!(
+                r#"assertion failed: `(left == right)`
+        left: `{}`,
+       right: `{}`"#,
+                hex::encode(&bytes),
+                hex::encode(&bytes2)
+            );
+        }
+        let ipld2: Ipld = C::decode_from_slice(&bytes).unwrap();
+        assert_eq!(&ipld2, ipld);
+        let data2: T = C::decode_from_slice(&bytes).unwrap();
+        assert_eq!(&data2, data);
     }
 }

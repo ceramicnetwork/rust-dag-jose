@@ -2,7 +2,8 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld::{Cid, Ipld};
+use ipld_core::cid::Cid;
+use ipld_core::ipld::Ipld;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -25,6 +26,21 @@ pub struct Encoded {
     //
     // Within each grouping the fields are defined in their correct
     // sort order.
+    //
+    // Additionally according to the spec:
+    //
+    //  > Any field which is represented as base64url(<data>) we map directly to Bytes.
+    //
+    //  https://ipld.io/specs/codecs/dag-jose/spec/#mapping-from-the-jose-general-json-serialization-to-dag-jose-serialization
+    //
+    // This means that these fields are represented as a Bytes type of the raw bytes of the field
+    // so they can be DAB-CBOR encoded/decoded as raw bytes not a base64url encoded string..
+    //
+    // When we convert the data to a Jose object we construct the base64url encoded string from the
+    // raw bytes.
+    //
+    // The dag-json feature takes advantage of this to encode the Jose structs directly preserving
+    // the base64url encoded string.
 
     // JWS fields
     #[serde(skip_serializing_if = "Option::is_none")]
