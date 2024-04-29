@@ -15,13 +15,15 @@ jobs:
     container:
       # See https://github.com/3box/rust-builder
       image: public.ecr.aws/r5b3e0r5/3box/rust-builder:latest
+      options: --user root
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: |
+          chown root:root -R .
           git config user.email "github@3box.io"
           git config user.name "Github Automation"
       - name: Create release PR
