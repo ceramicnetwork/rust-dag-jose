@@ -20,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
+          pwd
           git config user.email "github@3box.io"
           git config user.name "Github Automation"
       - name: Create release PR
