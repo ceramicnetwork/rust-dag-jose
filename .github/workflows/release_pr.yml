@@ -15,6 +15,7 @@ jobs:
     container:
       # See https://github.com/3box/rust-builder
       image: public.ecr.aws/r5b3e0r5/3box/rust-builder:latest
+      options: --user root
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
