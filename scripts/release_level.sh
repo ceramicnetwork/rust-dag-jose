@@ -21,7 +21,7 @@ level=patch
 # Using git cliff determine if there are any feat commits that do not belong to a tag.
 git cliff --unreleased --strip all --body "{% for group, commits in commits | group_by(attribute=\"group\") %}
 {{ group }} {{ commits | length }}
-{% endfor %}" | grep Features
+{% endfor %}" | grep Features > /dev/null
 ret=$?
 if [[ $ret = 0 ]]
 then

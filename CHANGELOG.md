@@ -2,11 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2024-04-30
+
+### Bug Fixes
+
+- [Use base64-url 2.0.2 with std feature](https://github.com/ceramicnetwork/rust-dag-jose/commit/abed3a954ab597268e68d1aebb5763e0f954dd5c)
+
+### Features
+
+- [Update to use ipld-core crate](https://github.com/ceramicnetwork/rust-dag-jose/commit/0c66859e9b52ead9c082ab1190b049ff50804c98)
+
+### Miscellaneous Tasks
+
+- [Use explicit root user in release pr workflow](https://github.com/ceramicnetwork/rust-dag-jose/commit/78b81c59047a687c9878e5d95d54a7d1eb16b323)
+
 ## [0.1.4] - 2023-12-12
 
 ### Bug Fixes
 
 - [Update base64-url dep with std feature](https://github.com/ceramicnetwork/rust-dag-jose/commit/fd9bde871b86f8cf3cbc5b695ed0ce1c82f2d387)
+
+### Miscellaneous Tasks
+
+- [Release version v0.1.4](https://github.com/ceramicnetwork/rust-dag-jose/commit/d5ce14add4546510f28b42d70f1ab5fb53f966d5)
 
 ## [0.1.3] - 2023-10-13
 
@@ -26,7 +44,6 @@ All notable changes to this project will be documented in this file.
 - [Setup auth for release workflows](https://github.com/ceramicnetwork/rust-dag-jose/commit/153b508e2d75f225db8d82e2342ad3cf559450d0)
 - [Fix release script to specify upstream](https://github.com/ceramicnetwork/rust-dag-jose/commit/3a63e09f7235e876a1390f11f92fbfc112d42665)
 - [Update release workflow](https://github.com/ceramicnetwork/rust-dag-jose/commit/90f3e042e1212a158b03f84305eaaf897c6809d5)
-- [Release v0.1.1](https://github.com/ceramicnetwork/rust-dag-jose/commit/31d4a1ab46ec6d3898d97c0e11d9b322f0f77ba8)
 
 ## [0.1.1] - 2023-03-15
 
@@ -37,6 +54,7 @@ All notable changes to this project will be documented in this file.
 
 ### Miscellaneous Tasks
 
+- [Release v0.1.1](https://github.com/ceramicnetwork/rust-dag-jose/commit/31d4a1ab46ec6d3898d97c0e11d9b322f0f77ba8)
 - [Rerun conventional checks on PR edit](https://github.com/ceramicnetwork/rust-dag-jose/commit/5a6fab447d08552bfd2c0325d17148e392a09637)
 - [Remove sudo hack, fix was in build image](https://github.com/ceramicnetwork/rust-dag-jose/commit/2f61a55eed45345f37bcc0e7749e33bf748feb55)
 - [Fix git user permissions error with release action](https://github.com/ceramicnetwork/rust-dag-jose/commit/0a749a843bc56d028c7df53635264e5d48eb0a0f)
