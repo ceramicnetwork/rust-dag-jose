@@ -317,7 +317,7 @@ If we re-encoded this data in [DAG-JSON](/docs/codecs/known/dag-json/)
 				},
 				"item1",
 				"item2"
-			],
+			]
         }
       },
 	"signatures": [
