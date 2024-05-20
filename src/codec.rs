@@ -91,7 +91,18 @@ impl TryFrom<Encoded> for JsonWebSignature {
     type Error = Error;
 
     fn try_from(value: Encoded) -> Result<Self, Self::Error> {
-        let link = Cid::try_from(value.payload.as_ref().ok_or(Error::NotJws)?.as_slice())?;
+        let payload = value.payload.as_ref().ok_or(Error::NotJws)?;
+
+        let (link, pld) = match serde_json::from_slice::<serde_json::Value>(payload.as_ref()) {
+            Ok(json) => {
+                let res = match crate::JsonPld(json).try_into().map_err(|_| Error::NotJws)? {
+                    Ipld::Map(map) => map,
+                    _ => return Err(Error::NotJws),
+                };
+                (None, Some(res))
+            }
+            Err(_) => (Some(Cid::try_from(payload.as_ref())?), None),
+        };
         Ok(Self {
             payload: value
                 .payload
@@ -104,6 +115,7 @@ impl TryFrom<Encoded> for JsonWebSignature {
                 .map(Signature::from)
                 .collect(),
             link,
+            pld,
         })
     }
 }
