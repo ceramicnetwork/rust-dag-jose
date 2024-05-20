@@ -100,6 +100,7 @@ test_fixture!(jws, "jws");
 test_fixture!(jws_signature_1, "jws-signature-1");
 test_fixture!(jws_signature_2, "jws-signature-2");
 test_fixture!(jws_signatures, "jws-signatures");
+test_fixture!(jws_signature_pld, "jws-signature-pld");
 test_fixture!(jwe_symmetric, "jwe-symmetric");
 test_fixture!(jwe_asymmetric, "jwe-asymmetric");
 test_fixture!(jwe_no_recipients, "jwe-no-recipients");

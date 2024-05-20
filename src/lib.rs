@@ -70,7 +70,6 @@ use std::collections::BTreeMap;
 use ipld_core::{
     cid::Cid,
     codec::{Codec, Links},
-    ipld,
     ipld::Ipld,
 };
 use serde_derive::Serialize;
@@ -152,22 +151,62 @@ impl Codec<Jose> for DagJsonCodec {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct JsonWebSignature {
     /// CID link from the payload.
-    pub link: Cid,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<Cid>,
     /// The payload base64 url encoded.
     pub payload: String,
-
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// The json payload with ipfs:// prefixed strings replaced with CIDs.
+    pub pld: Option<BTreeMap<String, Ipld>>,
     /// The set of signatures.
     pub signatures: Vec<Signature>,
 }
 
-impl<'a> From<&'a JsonWebSignature> for Ipld {
-    fn from(value: &'a JsonWebSignature) -> Self {
-        ipld!({
-            "payload": value.payload.to_owned(),
-            "signatures": value.signatures.iter().map(Ipld::from).collect::<Vec<Ipld>>(),
-            "link": value.link,
-        })
+#[derive(Clone, Debug, PartialEq)]
+/// Wrapper around a json value to convert ipfs:// prefixed strings to CIDs.
+struct JsonPld(serde_json::Value);
+
+impl TryFrom<JsonPld> for Ipld {
+    type Error = anyhow::Error;
+
+    fn try_from(value: JsonPld) -> Result<Self, Self::Error> {
+        // can we use a serde_ipld_* crate or something to handle most of this for for us?
+        match value.0 {
+            serde_json::Value::Null => Ok(Ipld::Null),
+            serde_json::Value::Bool(b) => Ok(Ipld::Bool(b)),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(Ipld::Integer(i as i128))
+                } else if let Some(f) = n.as_f64() {
+                    // should we reject NaN and infinities?
+                    Ok(Ipld::Float(f))
+                } else {
+                    anyhow::bail!("Invalid number. Should be unreachable")
+                }
+            }
+            serde_json::Value::String(s) => {
+                if let Some(str) = s.strip_prefix("ipfs://") {
+                    let cid = Cid::try_from(str)?;
+                    Ok(Ipld::Link(cid))
+                } else {
+                    Ok(Ipld::String(s))
+                }
+            }
+            serde_json::Value::Array(arr) => {
+                let list = arr
+                    .into_iter()
+                    .map(|v| JsonPld(v).try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Ipld::List(list))
+            }
+            serde_json::Value::Object(obj) => {
+                let map = obj
+                    .into_iter()
+                    .map(|(k, v)| JsonPld(v).try_into().map(|v| (k, v)))
+                    .collect::<Result<BTreeMap<_, _>, _>>()?;
+                Ok(Ipld::Map(map))
+            }
+        }
     }
 }
 
@@ -356,6 +395,8 @@ impl<'a> From<&'a Recipient> for Ipld {
 mod tests {
     use std::collections::BTreeMap;
 
+    use ipld_core::ipld;
+
     use super::*;
 
     struct JwsFixture {
@@ -425,7 +466,7 @@ mod tests {
         } = fixture_jws();
         let (payload_b64, protected_b64, signature_b64) =
             fixture_jws_base64(&payload, &protected, &signature);
-        let link = Cid::try_from(base64_url::decode(&payload_b64).unwrap()).unwrap();
+        let link = Some(Cid::try_from(base64_url::decode(&payload_b64).unwrap()).unwrap());
         assert_roundtrip(
             DagJoseCodec,
             &JsonWebSignature {
@@ -439,6 +480,7 @@ mod tests {
                     signature: signature_b64,
                 }],
                 link,
+                pld: None,
             },
             &ipld!({
                 "payload": payload,
